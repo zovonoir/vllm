@@ -23,7 +23,6 @@ from vllm.model_executor.layers.mamba.ops.causal_conv1d import (
     causal_conv1d_fn, causal_conv1d_update)
 from vllm.model_executor.layers.mamba.ops.mamba_ssm import (
     selective_scan_fn, selective_state_update)
-from vllm.model_executor.layers.sampler import SamplerOutput, get_sampler
 from vllm.model_executor.layers.vocab_parallel_embedding import (
     DEFAULT_VOCAB_PADDING_SIZE, ParallelLMHead, VocabParallelEmbedding)
 from vllm.model_executor.models.interfaces import (HasInnerState, IsHybrid,
@@ -193,7 +192,7 @@ class SambaYAttention(nn.Module):
             ],
                                 dim=-1)
             attn_output = self.attn(q, k, v)
-        else:  # re-use the kv cache, full attention
+        else:  # reuse the kv cache, full attention
             q = self.Wqkv(hidden_states)
             attn_output = self.attn(q, None, None)
         attn_output = attn_output.view(-1, self.num_heads * self.head_dim)
@@ -388,7 +387,8 @@ class Phi4Mamba(nn.Module):
                 has_initial_state=attn_metadata.context_lens_tensor > 0,
                 query_start_loc=attn_metadata.query_start_loc)
         else:
-            scan_outputs = selective_state_update(
+            scan_outputs = torch.empty_like(hidden_states.transpose(0, 1))
+            selective_state_update(
                 mamba_cache_params.ssm_state,
                 hidden_states.transpose(0, 1),
                 discrete_time_step.transpose(0, 1),
@@ -401,7 +401,8 @@ class Phi4Mamba(nn.Module):
                 None if self.yoco_kv else gate.transpose(0, 1),
                 time_proj_bias,
                 dt_softplus=True,
-                state_batch_indices=mamba_cache_params.state_indices_tensor)
+                state_batch_indices=mamba_cache_params.state_indices_tensor,
+                out=scan_outputs)
             scan_outputs = scan_outputs.transpose(0, 1)
 
         # 4. Final linear projection
@@ -641,7 +642,6 @@ class Phi4FlashForCausalLM(nn.Module, HasInnerState, IsHybrid, SupportsV0Only):
         self.logits_processor = LogitsProcessor(self.unpadded_vocab_size,
                                                 config.vocab_size,
                                                 logits_as_input=False)
-        self.sampler = get_sampler()
 
     def forward(
         self,
@@ -708,14 +708,6 @@ class Phi4FlashForCausalLM(nn.Module, HasInnerState, IsHybrid, SupportsV0Only):
             self.embedding_bias,
             prune_hidden_states=prune_hidden_states)
         return processed_logits
-
-    def sample(
-        self,
-        logits: torch.Tensor,
-        sampling_metadata: SamplingMetadata,
-    ) -> Optional[SamplerOutput]:
-        next_tokens = self.sampler(logits, sampling_metadata)
-        return next_tokens
 
     def load_weights(
         self,

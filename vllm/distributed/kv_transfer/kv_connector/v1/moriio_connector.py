@@ -44,9 +44,6 @@ GET_META_MSG = b"get_meta_msg"
 
 logger = init_logger(__name__)
 
-
-
-
 # Lazy import nixl_wrapper to avoid loading nixl_bindings if nixl is not used
 try:
     import mori
@@ -61,7 +58,7 @@ try:
     logger.info("MoRIIO is available")
     MoRIIO_enabled = True
 except ImportError:
-    logger.warning("MoRIIO is not available")
+    logger.error("MoRIIO is not available")
     MoRIIO_enabled = False
 
 
@@ -111,7 +108,7 @@ class MoRIIOConnectorMetadata(KVConnectorMetadata):
         )
 
 
-class NixlConnector(KVConnectorBase_V1):
+class MoRIIOConnector(KVConnectorBase_V1):
 
     def __init__(self, vllm_config: VllmConfig, role: KVConnectorRole):
         assert vllm_config.kv_transfer_config is not None
@@ -205,7 +202,7 @@ class MoRIIOConnectorScheduler:
             envs.VLLM_NIXL_SIDE_CHANNEL_PORT +
             vllm_config.parallel_config.data_parallel_rank *
             vllm_config.parallel_config.tensor_parallel_size)
-        logger.info("Initializing NIXL Scheduler %s", engine_id)
+        logger.info("Initializing MoRIIO Scheduler %s", engine_id)
 
         # Requests that need to start recv/send.
         # New requests are added by update_state_after_alloc in
@@ -377,7 +374,7 @@ class MoRIIOConnectorWorker:
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
-        # NIXL handshake port.
+        # MoRIIO handshake port.
         # NOTE(rob): Within a DP group, each DP rank gets its own
         # base port (which is sent in the KVTransferParams).
         # Each TP rank listens/queries on the base_port + tp_rank.
@@ -399,7 +396,7 @@ class MoRIIOConnectorWorker:
         # rank will still only pull from a single remote TP worker.
         self.kv_caches_base_addr: dict[EngineId, list[int]] = {}
 
-        # Number of NIXL regions. Currently one region per cache
+        # Number of MoRIIO regions. Currently one region per cache
         # (so 1 per layer for MLA, otherwise 2 per layer)
         self.num_regions = 0
         self.num_layers = 0
@@ -422,9 +419,9 @@ class MoRIIOConnectorWorker:
 
         # Background thread for handling new handshake requests.
         self._nixl_handshake_listener_t: Optional[threading.Thread] = None
-        # Background thread for initializing new NIXL handshakes.
+        # Background thread for initializing new MoRIIO handshakes.
         self._handshake_initiation_executor = ThreadPoolExecutor(
-            # NIXL is not guaranteed to be thread-safe, limit 1 worker.
+            # MoRIIO is not guaranteed to be thread-safe, limit 1 worker.
             max_workers=1,
             thread_name_prefix="vllm-nixl-handshake-initiator")
         self._ready_requests = queue.Queue[tuple[ReqId, ReqMeta]]()
@@ -469,7 +466,7 @@ class MoRIIOConnectorWorker:
     def _nixl_handshake_listener(metadata: MoRIIOAgentMetadata,
                                  ready_event: threading.Event, base_port: int,
                                  tp_rank: int):
-        """Background thread for getting new NIXL handshakes."""
+        """Background thread for getting new MoRIIO handshakes."""
         # NOTE(rob): this is a simple implementation. We will move
         # to a better approach via HTTP endpoint soon.
 
@@ -499,7 +496,7 @@ class MoRIIOConnectorWorker:
         remote_tp_size: int,
         expected_engine_id: str,
     ) -> dict[int, str]:
-        """Do a NIXL handshake with a remote instance."""
+        """Do a MoRIIO handshake with a remote instance."""
 
         start_time = time.perf_counter()
 
@@ -522,12 +519,12 @@ class MoRIIOConnectorWorker:
             decoder = msgspec.msgpack.Decoder(MoRIIOAgentMetadata)
             metadata = decoder.decode(metadata_bytes)
             got_metadata_time = time.perf_counter()
-            logger.debug("NIXL handshake: get metadata took: %s",
+            logger.debug("MoRIIO handshake: get metadata took: %s",
                          got_metadata_time - start_time)
 
             # Ensure engine id matches.
             if metadata.engine_id != expected_engine_id:
-                raise RuntimeError(f"Remote NIXL agent engine ID mismatch. "
+                raise RuntimeError(f"Remote MoRIIO agent engine ID mismatch. "
                                    f"Expected {expected_engine_id},"
                                    f"received {metadata.engine_id}.")
 
@@ -535,7 +532,7 @@ class MoRIIOConnectorWorker:
             remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,
                                                       remote_tp_size)
             setup_agent_time = time.perf_counter()
-            logger.debug("NIXL handshake: add agent took: %s",
+            logger.debug("MoRIIO handshake: add agent took: %s",
                          setup_agent_time - got_metadata_time)
 
         # Remote rank -> agent name.
@@ -543,7 +540,7 @@ class MoRIIOConnectorWorker:
 
     def _background_nixl_handshake(self, req_id: str,
                                    remote_engine_id: EngineId, meta: ReqMeta):
-        # Do NIXL handshake in background and add to _ready_requests when done.
+        # Do MoRIIO handshake in background and add to _ready_requests when done.
         fut = self._handshake_futures.get(remote_engine_id)
         if fut is None:
             fut = self._handshake_initiation_executor.submit(
@@ -575,7 +572,7 @@ class MoRIIOConnectorWorker:
         kv_elem_size = first_kv_cache.element_size()
 
         # TODO(tms): Find a more robust way to detect and handle MLA
-        # NOTE (NickLucche) To move blocks efficiently with NIXL, the expected
+        # NOTE (NickLucche) To move blocks efficiently with MoRIIO, the expected
         # KV memory layout is HND, as opposed to the default NHD. Note that it
         # will only affects the strides. For MLA instead, we make require no
         # such thing and resort to the standard layout.
@@ -666,7 +663,7 @@ class MoRIIOConnectorWorker:
         logger.debug("Done registering descs")
         self._registered_descs.append(descs)
 
-        # Register local/src descr for NIXL xfer.
+        # Register local/src descr for MoRIIO xfer.
         blocks_data = []
         for base_addr in self.kv_caches_base_addr[self.engine_id]:
             # NOTE With heter-TP, more blocks are prepared than what are
@@ -710,7 +707,7 @@ class MoRIIOConnectorWorker:
                          remote_tp_rank: int = 0,
                          remote_tp_size: int = 1) -> str:
         """
-        Add the remote NIXL agent and prepare the descriptors for reading cache
+        Add the remote MoRIIO agent and prepare the descriptors for reading cache
         blocks from remote.
 
         In particular, handle both homogeneous and heterogeneous TP. The former
@@ -828,7 +825,7 @@ class MoRIIOConnectorWorker:
             "local rank %s", len(blocks_data), engine_id, remote_tp_rank,
             self.tp_rank)
 
-        # Register with NIXL.
+        # Register with MoRIIO.
         descs = self.nixl_wrapper.get_xfer_descs(blocks_data, "VRAM")
         self.dst_xfer_side_handles[
             engine_id] = self.nixl_wrapper.prep_xfer_dlist(

@@ -2,7 +2,7 @@
 # please put your GITHUB_TOKEN below
 # docker build --build-arg GITHUB_TOKEN=ghp_XXXXXXXXXXXXXXXXXXXXXX -t ...................
 
-FROM rocm/aigmodels-private:alex_vllm_mori_tp_only_0804
+FROM rocm/vllm-dev:nightly_main_20250804
 ARG GITHUB_TOKEN=""
 
 
@@ -49,7 +49,7 @@ EOF
 
 
 WORKDIR /app
-RUN rm -rf mori
+# RUN rm -rf mori
 RUN git clone https://${GITHUB_TOKEN}@github.com/ROCm/mori.git
 WORKDIR /app/mori/
 

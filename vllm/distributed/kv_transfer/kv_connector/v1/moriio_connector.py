@@ -916,6 +916,7 @@ class MoRIIOConnectorWorker:
         Start loading by triggering non-blocking nixl_xfer.
         We check for these trnxs to complete in each step().
         """
+        logger.info(f"zovlog:====>moriio start load kv,{meta.remote_engine_id=},{self._remote_agents=}")
         for req_id, meta in metadata.reqs_to_recv.items():
             remote_engine_id = meta.remote_engine_id
             logger.debug(

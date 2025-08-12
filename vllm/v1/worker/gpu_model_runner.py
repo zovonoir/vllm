@@ -1556,6 +1556,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         # Run the model.
         # Use persistent buffers for CUDA graphs.
+        logger.info(f"zovlog:====>{scheduler_output.finished_req_ids = }")
         with set_forward_context(
                 attn_metadata,
                 self.vllm_config,

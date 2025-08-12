@@ -372,6 +372,16 @@ class MoRIIOConnectorWorker:
         self.kv_transfer_config = vllm_config.kv_transfer_config
         self.is_producer = self.kv_transfer_config.is_kv_producer
 
+        # mori engine
+        if not self.is_producer:
+            local_ip = self.kv_transfer_config.kv_ip
+            local_port = self.kv_transfer_config.kv_port
+            self.mori_engine = IOEngine(IOEngineConfig(local_ip,local_port))
+        else:
+            self.mori_engine = False
+        
+        logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
+
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.

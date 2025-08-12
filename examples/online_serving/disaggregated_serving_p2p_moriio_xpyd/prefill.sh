@@ -35,5 +35,5 @@ export SAFETENSORS_FAST_GPU=1
     --gpu-memory-utilization 0.2 \
     --disable-log-request \
     --served-model-name deepseek-ai/DeepSeek-R1 \
-    --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_producer","kv_buffer_size":"1","kv_port":"21001","kv_connector_extra_config":{"proxy_ip":"0.0.0.0","proxy_port":"30001","http_port":"20005","send_type":"PUT","nccl_num_channels":"16"}}'
+    --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_producer","kv_port":"21001","kv_connector_extra_config":{"proxy_ip":"0.0.0.0","proxy_port":"30001","http_port":"20005","send_type":"PUT","nccl_num_channels":"16"}}'
 #  } 2>&1 | tee -a "$LOG_FILE" & 

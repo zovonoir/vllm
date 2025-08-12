@@ -369,6 +369,8 @@ class MoRIIOConnectorWorker:
         # Config.
         self.vllm_config = vllm_config
         self.block_size = vllm_config.cache_config.block_size
+        self.kv_transfer_config = vllm_config.kv_transfer_config
+        self.is_producer = self.kv_transfer_config.kv_connector_extra_config.is_kv_producer
 
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
@@ -916,7 +918,10 @@ class MoRIIOConnectorWorker:
         Start loading by triggering non-blocking nixl_xfer.
         We check for these trnxs to complete in each step().
         """
-        logger.info(f"zovlog:====>moriio start load kv,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+        if self.is_producer:
+            logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+            return
+        
         for req_id, meta in metadata.reqs_to_recv.items():
             remote_engine_id = meta.remote_engine_id
             logger.debug(

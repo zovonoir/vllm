@@ -370,7 +370,7 @@ class MoRIIOConnectorWorker:
         self.block_size = vllm_config.cache_config.block_size
 
         # Agent.
-        self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
+        # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
@@ -866,18 +866,20 @@ class MoRIIOConnectorWorker:
         are reading from the same producer (heterogeneous TP scenario), wait
         for all consumers to be done pulling.
         """
-        notified_req_ids: set[str] = set()
-        for notifs in self.nixl_wrapper.get_new_notifs().values():
-            for notif in notifs:
-                req_id, tp_ratio = notif.decode("utf-8").rsplit(":", 1)
-                self.consumer_notification_counts_by_req[req_id] += 1
-                # Wait all consumers (D) to be done reading before freeing.
-                if self.consumer_notification_counts_by_req[req_id] == int(
-                        tp_ratio):
-                    notified_req_ids.add(req_id)
-                    del self.consumer_notification_counts_by_req[req_id]
-                    del self._reqs_to_send[req_id]
-        return notified_req_ids
+        pass
+
+        # notified_req_ids: set[str] = set()
+        # for notifs in self.nixl_wrapper.get_new_notifs().values():
+        #     for notif in notifs:
+        #         req_id, tp_ratio = notif.decode("utf-8").rsplit(":", 1)
+        #         self.consumer_notification_counts_by_req[req_id] += 1
+        #         # Wait all consumers (D) to be done reading before freeing.
+        #         if self.consumer_notification_counts_by_req[req_id] == int(
+        #                 tp_ratio):
+        #             notified_req_ids.add(req_id)
+        #             del self.consumer_notification_counts_by_req[req_id]
+        #             del self._reqs_to_send[req_id]
+        # return notified_req_ids
 
     def _pop_done_transfers(
             self, transfers: dict[str, list[tuple[int, float]]]) -> set[str]:

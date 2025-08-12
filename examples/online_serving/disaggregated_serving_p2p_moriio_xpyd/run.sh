@@ -1,6 +1,6 @@
 #!/bin/bash
 # taskset -c 0 "$0" "$@"
-TARGET_GUID="e43431fffe830a5f"
+TARGET_GUID="0c6e4cfffe7117d7"
 
 CURRENT_GUID=$(ibv_devices | awk '/bnxt_re_bond0/ {print $2}')
 

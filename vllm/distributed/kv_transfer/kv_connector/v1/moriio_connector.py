@@ -370,7 +370,7 @@ class MoRIIOConnectorWorker:
         self.vllm_config = vllm_config
         self.block_size = vllm_config.cache_config.block_size
         self.kv_transfer_config = vllm_config.kv_transfer_config
-        self.is_producer = self.kv_transfer_config.kv_connector_extra_config.is_kv_producer
+        self.is_producer = self.kv_transfer_config.is_kv_producer
 
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)

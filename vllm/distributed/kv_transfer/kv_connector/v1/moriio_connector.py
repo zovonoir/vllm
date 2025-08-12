@@ -843,23 +843,24 @@ class MoRIIOConnectorWorker:
         The scheduler process (via the MultiprocExecutor) will use this output
         to track which workers are done.
         """
-        done_sending = self._get_new_notifs()
-        done_recving = self._pop_done_transfers(self._recving_transfers)
-        if len(done_sending) > 0 or len(done_recving) > 0:
-            logger.debug(
-                "Rank %s, get_finished: %s requests done sending "
-                "and %s requests done recving", self.tp_rank,
-                len(done_sending), len(done_recving))
+        # done_sending = self._get_new_notifs()
+        # done_recving = self._pop_done_transfers(self._recving_transfers)
+        # if len(done_sending) > 0 or len(done_recving) > 0:
+        #     logger.debug(
+        #         "Rank %s, get_finished: %s requests done sending "
+        #         "and %s requests done recving", self.tp_rank,
+        #         len(done_sending), len(done_recving))
 
-        # Handle timeout to avoid stranding blocks on remote.
-        now = time.perf_counter()
-        while self._reqs_to_send:
-            req_id, expires = next(iter(self._reqs_to_send.items()))
-            # Sorted dict, oldest requests are put first so we can exit early.
-            if now < expires:
-                break
-            del self._reqs_to_send[req_id]
-            done_sending.add(req_id)
+        # # Handle timeout to avoid stranding blocks on remote.
+        # now = time.perf_counter()
+        # while self._reqs_to_send:
+        #     req_id, expires = next(iter(self._reqs_to_send.items()))
+        #     # Sorted dict, oldest requests are put first so we can exit early.
+        #     if now < expires:
+        #         break
+        #     del self._reqs_to_send[req_id]
+        #     done_sending.add(req_id)
+        done_sending, done_recving = set(), set()
 
         return done_sending, done_recving
 

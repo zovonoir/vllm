@@ -381,11 +381,11 @@ class MoRIIOConnectorWorker:
         self._rank = get_world_group().rank 
         self._local_rank = get_world_group().local_rank 
         self.local_ip = get_ip() # P/D节点自身的IP
-        self.local_kv_port = self.kv_transfer_config.kv_port # D节点拉取kvcache的时候使用的port
+        self.local_kv_port = int(self.kv_transfer_config.kv_port) # D节点拉取kvcache的时候使用的port
         self.proxy_ip = self.kv_transfer_config.kv_connector_extra_config["proxy_ip"] # proxy自身的IP,也是用户唯一需要识别的IP,也是P/D节点上报信息的IP
-        self.proxy_port = self.kv_transfer_config.kv_connector_extra_config["proxy_port"] # 用于监听用户prompt的port,与用户交互的port
-        self.local_ping_port = self.kv_transfer_config.kv_connector_extra_config["local_ping_port"] # P/D节点上报自身信息时使用的port
-        self.proxy_ping_port = self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"] # P/D节点将自身信息上报至这个port
+        self.proxy_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_port"]) # 用于监听用户prompt的port,与用户交互的port
+        self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
+        self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
         if not self.is_producer:
             self.mori_engine = IOEngine(IOEngineConfig(self.local_ip,self.local_kv_port))
         else:
@@ -395,7 +395,7 @@ class MoRIIOConnectorWorker:
             self._ping_thread = threading.Thread(target=self._ping,daemon=True)
             self._ping_thread.start()
         logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
-
+        logger.info(f"{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.

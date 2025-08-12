@@ -102,6 +102,7 @@ class KVConnectorModelRunnerMixin:
         # These transfers are designed to be async and the requests
         # involved may be disjoint from the running requests.
         # Do this here to save a collective_rpc.
+        logger.info("zovlog:=====>kv connector start load kv")
         kv_connector.start_load_kv(get_forward_context())
         try:
             yield output

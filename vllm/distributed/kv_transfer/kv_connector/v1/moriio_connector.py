@@ -11,10 +11,15 @@ from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Optional
+from vllm.utils import current_stream, get_ip
+from vllm.distributed.parallel_state import get_world_group
+import threading
 
 import msgspec
 import torch
 import zmq
+import msgpack
+import socket
 
 from vllm import envs
 from vllm.attention.selector import backend_name_to_enum, get_attn_backend
@@ -373,13 +378,22 @@ class MoRIIOConnectorWorker:
         self.is_producer = self.kv_transfer_config.is_kv_producer
 
         # mori engine
+        self._rank = get_world_group().rank 
+        self._local_rank = get_world_group().local_rank 
+        self.local_ip = get_ip() # P/D节点自身的IP
+        self.local_kv_port = self.kv_transfer_config.kv_port # D节点拉取kvcache的时候使用的port
+        self.proxy_ip = self.kv_transfer_config.kv_connector_extra_config["proxy_ip"] # proxy自身的IP,也是用户唯一需要识别的IP,也是P/D节点上报信息的IP
+        self.proxy_port = self.kv_transfer_config.kv_connector_extra_config["proxy_port"] # 用于监听用户prompt的port,与用户交互的port
+        self.local_ping_port = self.kv_transfer_config.kv_connector_extra_config["local_ping_port"] # P/D节点上报自身信息时使用的port
+        self.proxy_ping_port = self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"] # P/D节点将自身信息上报至这个port
         if not self.is_producer:
-            local_ip = self.kv_transfer_config.kv_ip
-            local_port = self.kv_transfer_config.kv_port
-            self.mori_engine = IOEngine(IOEngineConfig(local_ip,local_port))
+            self.mori_engine = IOEngine(IOEngineConfig(self.local_ip,self.local_kv_port))
         else:
             self.mori_engine = False
-        
+        self._ping_thread = None
+        if self._rank == 0 and self.proxy_ip != "":
+            self._ping_thread = threading.Thread(target=self._ping,daemon=True)
+            self._ping_thread.start()
         logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
 
         # Agent.
@@ -475,6 +489,24 @@ class MoRIIOConnectorWorker:
         if self._nixl_handshake_listener_t:
             self._nixl_handshake_listener_t.join(timeout=0)
 
+    def _ping(self):
+        index = 1
+        while True:
+            try:
+                logger.info(f"zovlog:====>trying send {index}th data to proxy...")
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    data = {"type":"HELLO","role":"P" if self.is_producer else "D","index":str(index)}
+                    s.bind((self.local_ip,self.local_ping_port))
+                    s.connect((self.proxy_ip, self.local_ping_port))
+                    s.sendall(msgpack.dumps(data))
+                    logger.info(f"zovlog:====>Sent: {data}")
+                    s.close()
+            except ConnectionRefusedError:
+                pass
+            finally:
+                time.sleep(3)
+                index += 1
+        
     @staticmethod
     def _nixl_handshake_listener(metadata: MoRIIOAgentMetadata,
                                  ready_event: threading.Event, base_port: int,

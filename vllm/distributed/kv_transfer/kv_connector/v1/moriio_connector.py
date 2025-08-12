@@ -123,6 +123,7 @@ class MoRIIOConnector(KVConnectorBase_V1):
             self.connector_scheduler = None
             self.connector_worker = MoRIIOConnectorWorker(
                 vllm_config, self.engine_id)
+        logger.info("Initialized MoRIIO Connector")
 
     ############################################################
     # Scheduler Side Methods

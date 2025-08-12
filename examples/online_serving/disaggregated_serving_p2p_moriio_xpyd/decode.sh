@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LOG_FILE="logs/vllm_serve_decode_$(date +'%Y%m%d_%H-%M-%S').log"
+# LOG_FILE="logs/vllm_serve_decode_$(date +'%Y%m%d_%H-%M-%S').log"
 set -ex
 export GLOO_SOCKET_IFNAME=ens50f0
 export NCCL_SOCKET_IFNAME=ens50f0
@@ -21,7 +21,7 @@ export VLLM_ROCM_USE_AITER=1
 export VLLM_ENABLE_DSV3=0  
 export SAFETENSORS_FAST_GPU=1   
 
-{
+# {
 vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa9480d55605af694f39b081c455/  \
         -tp 1   \
         --block-size 16  \
@@ -35,4 +35,4 @@ vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa94
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \
         --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_buffer_size":"1","kv_port":"25001","kv_connector_extra_config":{"proxy_ip":"0.0.0.0","proxy_port":"30001","http_port":"40005","send_type":"PUT","nccl_num_channels":"16"}}'
-} 2>&1 | tee -a "$LOG_FILE" &
+# } 2>&1 | tee -a "$LOG_FILE" &

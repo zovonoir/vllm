@@ -5,8 +5,8 @@ set -ex
 export GLOO_SOCKET_IFNAME=ens50f0
 export NCCL_SOCKET_IFNAME=ens50f0
 
-export CUDA_VISIBLE_DEVICES=0
-export HIP_VISIBLE_DEVICES=0
+export CUDA_VISIBLE_DEVICES=3
+export HIP_VISIBLE_DEVICES=3
 export NCCL_NCHANNELS_PER_NET_PEER=1
 #export VLLM_LOGGING_CONFIG_PATH=log.conf.json
 #export NCCL_DEBUG=INFO 
@@ -34,5 +34,5 @@ vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa94
         --gpu-memory-utilization 0.7 \
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \
-        --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_buffer_size":"4e10","kv_port":"25001","kv_connector_extra_config":{"proxy_ip":"0.0.0.0","proxy_port":"30001","http_port":"40005","send_type":"PUT","nccl_num_channels":"16"}}'
+        --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_buffer_size":"1","kv_port":"25001","kv_connector_extra_config":{"proxy_ip":"0.0.0.0","proxy_port":"30001","http_port":"40005","send_type":"PUT","nccl_num_channels":"16"}}'
 } 2>&1 | tee -a "$LOG_FILE" &

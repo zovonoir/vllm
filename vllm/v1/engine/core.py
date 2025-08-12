@@ -881,6 +881,7 @@ class EngineCoreProc(EngineCore):
 
             while True:
                 output = self.output_queue.get()
+                logger.info(f"zovlog:=====> output socket get output index:{output}")
                 if output == EngineCoreProc.ENGINE_CORE_DEAD:
                     for socket in sockets:
                         socket.send(output)

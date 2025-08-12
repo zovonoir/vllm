@@ -2,8 +2,8 @@
 
 LOG_FILE="logs/vllm_serve_decode_$(date +'%Y%m%d_%H-%M-%S').log"
 set -ex
-# export GLOO_SOCKET_IFNAME=ens50f0
-# export NCCL_SOCKET_IFNAME=ens50f0
+export GLOO_SOCKET_IFNAME=ens50f0
+export NCCL_SOCKET_IFNAME=ens50f0
 
 export CUDA_VISIBLE_DEVICES=0
 export HIP_VISIBLE_DEVICES=0

@@ -501,7 +501,7 @@ class MoRIIOConnectorWorker:
                     # s.connect((self.local_ip,6666))
                     s.sendall(msgpack.dumps(data))
                     logger.info(f"zovlog:====>Sent: {data}")
-                    s.close()
+                    # s.close()
             except ConnectionRefusedError:
                 logger.info(f"zovlog:====> {(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)} send failed,connection refused")
             except Exception:

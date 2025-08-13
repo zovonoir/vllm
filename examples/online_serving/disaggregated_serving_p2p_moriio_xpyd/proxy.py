@@ -38,13 +38,21 @@ def _listen_for_register(hostname, port):
     with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as s:
         print(f"zovlog:===> trying bind to {(hostname,port)}")
         s.bind((hostname,port))
+        s.listen(10)
         while True:
-            s.listen()
             conn,addr = s.accept()
-            with conn:
-                data = conn.recv(2048)
-                print(f"zovlog:====>proxy received:{data}")
-    # while True:
+            data = conn.recv(2048)
+            print(f"zovlog:====>proxy received:{data}")
+
+
+
+    #     while True:
+    #         s.listen()
+    #         conn,addr = s.accept()
+    #         with conn:
+    #             data = conn.recv(2048)
+    #             print(f"zovlog:====>proxy received:{data}")
+    # # while True:
     #     socks = dict(poller.poll())
     #     if router_socket in socks:
     #         remote_address, message = router_socket.recv_multipart()

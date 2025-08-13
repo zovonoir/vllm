@@ -103,7 +103,7 @@ async def handle_request():
             prefill_list = list(prefill_instances.items())
             # prefill_addr, prefill_zmq_addr = prefill_list[count % len(prefill_list)]
             # prefill_zmq_addr = prefill_zmq_addr[0]
-            prefill_addr = prefill_list[count % len(prefill_list)]
+            prefill_addr = prefill_list[count % len(prefill_list)][1]
 
         global decode_instances
         global decode_cv
@@ -111,7 +111,7 @@ async def handle_request():
             decode_list = list(decode_instances.items())
             # decode_addr, decode_zmq_addr = decode_list[count % len(decode_list)]
             # decode_zmq_addr = decode_zmq_addr[0]
-            decode_addr = decode_list[count % len(decode_list)]
+            decode_addr = decode_list[count % len(decode_list)][1]
 
         # print(
         #     f"handle_request count: {count}, [HTTP:{prefill_addr}, "

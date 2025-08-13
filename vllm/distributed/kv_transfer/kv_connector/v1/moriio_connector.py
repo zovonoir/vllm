@@ -496,10 +496,10 @@ class MoRIIOConnectorWorker:
         sock.connect(f"tcp://{self.proxy_ip}:{self.proxy_ping_port}")
         while True:
             try:
-                print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)}")
+                # print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)}")
                 data = {"type":"HELLO","role":"P" if self.is_producer else "D","index":str(index)}
                 sock.send(msgpack.dumps(data))
-                print(f"zovlog:====>Sent: {data}")
+                # print(f"zovlog:====>Sent: {data}")
             except ConnectionRefusedError:
                 print(f"zovlog:====> {(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)} send failed,connection refused")
             except OSError as e:

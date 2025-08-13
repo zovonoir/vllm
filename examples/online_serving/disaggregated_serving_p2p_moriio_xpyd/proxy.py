@@ -38,9 +38,12 @@ def _listen_for_register(hostname, port):
             data = msgpack.loads(msg)
             if data['type'] == "HELLO":
                 pass
-            elif data['type'] == "register":
-                if data['http_address'] is not in prefill_instances:
+            elif data['type'] == "register" and data['role'] == "P":
+                if data['http_address'] not in prefill_instances:
                     prefill_instances[data['http_address']] = data['http_address']
+            elif data["type"] == "register" and data['role'] == "D":
+                if data['http_address'] not in decode_instances:
+                    decode_instances[data['http_address']] = data['http_address']
             print(f"zovlog:====> recv {data},remote_addr={remote_addr}")
 
 def start_service_discovery(hostname, port):

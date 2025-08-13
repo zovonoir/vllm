@@ -35,64 +35,17 @@ def _remove_oldest_instances(instances: dict[str, Any]) -> None:
 
 
 def _listen_for_register(hostname, port):
-    with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        print(f"zovlog:===> trying bind to {(hostname,port)}")
-        s.bind((hostname,port))
-        s.listen(10)
-        while True:
-            conn,addr = s.accept()
-            data = conn.recv(2048)
-            print(f"zovlog:====>proxy received:{data}")
-
-
-
-    #     while True:
-    #         s.listen()
-    #         conn,addr = s.accept()
-    #         with conn:
-    #             data = conn.recv(2048)
-    #             print(f"zovlog:====>proxy received:{data}")
-    # # while True:
-    #     socks = dict(poller.poll())
-    #     if router_socket in socks:
-    #         remote_address, message = router_socket.recv_multipart()
-    #         # data: {"type": "P", "http_address": "ip:port",
-    #         #        "zmq_address": "ip:port"}
-    #         data = msgpack.loads(message)
-    #         print("proxy",data)
-            # if data["type"] == "P":
-            #     global prefill_instances
-            #     global prefill_cv
-            #     with prefill_cv:
-            #         node = prefill_instances.get(data["http_address"], None)
-            #         prefill_instances[data["http_address"]] = (
-            #             data["zmq_address"],
-            #             time.time() + DEFAULT_PING_SECONDS,
-            #         )
-            #         _remove_oldest_instances(prefill_instances)
-
-            # elif data["type"] == "D":
-            #     global decode_instances
-            #     global decode_cv
-            #     with decode_cv:
-            #         node = decode_instances.get(data["http_address"], None)
-            #         decode_instances[data["http_address"]] = (
-            #             data["zmq_address"],
-            #             time.time() + DEFAULT_PING_SECONDS,
-            #         )
-            #         _remove_oldest_instances(decode_instances)
-            # else:
-            #     print(
-            #         "Unexpected, Received message from %s, data: %s",
-            #         remote_address,
-            #         data,
-            #     )
-            #     return
-
-            # if node is None:
-            #     print(f"🔵Add [HTTP:{data['http_address']}, ZMQ:{data['zmq_address']}]")
-
+    context = zmq.Context()
+    router_socket = context.socket(zmq.ROUTER)
+    router_socket.bind(f"tcp://{hostname}:{port}")
+    poller = zmq.Poller()
+    poller.register(router_socket,zmq.POLLIN)
+    while True:
+        socks = dict(poller.poll())
+        if router_socket in socks:
+            remote_addr,msg = router_socket.recv_multipart()
+            data = msgpack.loads(msg)
+            print(f"zovlog:====> recv {data},remote_addr={remote_addr}")
 
 def start_service_discovery(hostname, port):
     if not hostname:
@@ -100,15 +53,7 @@ def start_service_discovery(hostname, port):
     if port == 0:
         raise ValueError("Port cannot be 0")
 
-    context = zmq.Context()
-    router_socket = context.socket(zmq.ROUTER)
-    router_socket.bind(f"tcp://{hostname}:{port}")
-
-    poller = zmq.Poller()
-    poller.register(router_socket, zmq.POLLIN)
-
     _listener_thread = threading.Thread(
-        # target=_listen_for_register, args=[poller, router_socket], daemon=True
         target = _listen_for_register,args = (hostname, port),daemon=True
     )
     _listener_thread.start()

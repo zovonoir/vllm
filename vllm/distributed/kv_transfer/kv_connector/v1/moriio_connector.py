@@ -378,6 +378,7 @@ class MoRIIOConnectorWorker:
         self.is_producer = self.kv_transfer_config.is_kv_producer
 
         # mori engine
+        self.zmq_context = zmq.Context()
         self._rank = get_world_group().rank 
         self._local_rank = get_world_group().local_rank 
         self.local_ip = get_ip() # P/D节点自身的IP
@@ -392,7 +393,7 @@ class MoRIIOConnectorWorker:
             self.mori_engine = False
         self._ping_thread = None
         if self._rank == 0 and self.proxy_ip != "":
-            self._ping_thread = threading.Thread(target=self._ping,daemon=True)
+            self._ping_thread = threading.Thread(target=self._ping,args=(self.zmq_context,),daemon=True)
             self._ping_thread.start()
         logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
         logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
@@ -489,23 +490,22 @@ class MoRIIOConnectorWorker:
         if self._nixl_handshake_listener_t:
             self._nixl_handshake_listener_t.join(timeout=0)
 
-    def _ping(self):
+    def _ping(self,zmq_context):
         index = 1
+        sock = zmq_context.socket(zmq.DEALER)
+        sock.connect(f"tcp://{self.proxy_ip}:{self.proxy_ping_port}")
         while True:
             try:
-                logger.info(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)}")
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    data = {"type":"HELLO","role":"P" if self.is_producer else "D","index":str(index)}
-                    s.bind((self.local_ip,self.local_ping_port))
-                    s.connect((self.proxy_ip, self.proxy_ping_port))
-                    # s.connect((self.local_ip,6666))
-                    s.sendall(msgpack.dumps(data))
-                    logger.info(f"zovlog:====>Sent: {data}")
-                    # s.close()
+                print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)}")
+                data = {"type":"HELLO","role":"P","index":str(index)}
+                sock.send(msgpack.dumps(data))
+                print(f"zovlog:====>Sent: {data}")
             except ConnectionRefusedError:
-                logger.info(f"zovlog:====> {(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)} send failed,connection refused")
-            except Exception:
-                logger.info("zovlog:===> send failed , unknown error")
+                print(f"zovlog:====> {(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)} send failed,connection refused")
+            except OSError as e:
+                print(f"zovlog:===> send failed , os error {e}")
+            except Exception as e:
+                print(f"zovlog:===> send failed , unknown error {e}")
             finally:
                 time.sleep(3)
                 index += 1

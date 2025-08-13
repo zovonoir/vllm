@@ -497,7 +497,8 @@ class MoRIIOConnectorWorker:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     data = {"type":"HELLO","role":"P" if self.is_producer else "D","index":str(index)}
                     s.bind((self.local_ip,self.local_ping_port))
-                    s.connect((self.proxy_ip, self.proxy_ping_port))
+                    # s.connect((self.proxy_ip, self.proxy_ping_port))
+                    s.connect(("6.6.6.6",8888))
                     s.sendall(msgpack.dumps(data))
                     logger.info(f"zovlog:====>Sent: {data}")
                     s.close()

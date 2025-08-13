@@ -68,11 +68,11 @@ def random_uuid() -> str:
     return str(uuid.uuid4().hex)
 
 
-async def forward_request(url, data, request_id):
+async def forward_request(url, data):
     async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
-            "X-Request-Id": request_id,
+            # "X-Request-Id": request_id,
         }
         async with session.post(url=url, json=data, headers=headers) as response:
             if response.status == 200:
@@ -101,37 +101,39 @@ async def handle_request():
         global prefill_cv
         with prefill_cv:
             prefill_list = list(prefill_instances.items())
-            prefill_addr, prefill_zmq_addr = prefill_list[count % len(prefill_list)]
-            prefill_zmq_addr = prefill_zmq_addr[0]
+            # prefill_addr, prefill_zmq_addr = prefill_list[count % len(prefill_list)]
+            # prefill_zmq_addr = prefill_zmq_addr[0]
+            prefill_addr = prefill_list[count % len(prefill_list)]
 
         global decode_instances
         global decode_cv
         with decode_cv:
             decode_list = list(decode_instances.items())
-            decode_addr, decode_zmq_addr = decode_list[count % len(decode_list)]
-            decode_zmq_addr = decode_zmq_addr[0]
+            # decode_addr, decode_zmq_addr = decode_list[count % len(decode_list)]
+            # decode_zmq_addr = decode_zmq_addr[0]
+            decode_addr = decode_list[count % len(decode_list)]
 
-        print(
-            f"handle_request count: {count}, [HTTP:{prefill_addr}, "
-            f"ZMQ:{prefill_zmq_addr}] 👉 [HTTP:{decode_addr}, "
-            f"ZMQ:{decode_zmq_addr}]"
-        )
+        # print(
+        #     f"handle_request count: {count}, [HTTP:{prefill_addr}, "
+        #     f"ZMQ:{prefill_zmq_addr}] 👉 [HTTP:{decode_addr}, "
+        #     f"ZMQ:{decode_zmq_addr}]"
+        # )
         count += 1
 
-        request_id = (
-            f"___prefill_addr_{prefill_zmq_addr}___decode_addr_"
-            f"{decode_zmq_addr}_{random_uuid()}"
-        )
+        # request_id = (
+        #     f"___prefill_addr_{prefill_zmq_addr}___decode_addr_"
+        #     f"{decode_zmq_addr}_{random_uuid()}"
+        # )
 
         # finish prefill
         async for _ in forward_request(
-            f"http://{prefill_addr}{request.path}", prefill_request, request_id
+            f"http://{prefill_addr}", prefill_request
         ):
             continue
 
         # return decode
         generator = forward_request(
-            f"http://{decode_addr}{request.path}", original_request_data, request_id
+            f"http://{decode_addr}", original_request_data
         )
         response = await make_response(generator)
         response.timeout = None

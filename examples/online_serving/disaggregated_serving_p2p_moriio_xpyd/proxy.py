@@ -74,7 +74,7 @@ async def forward_request(url, data):
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
             # "X-Request-Id": request_id,
         }
-        print(f"ready to post:{url=},{data = },{headers = }")
+        print(f"zovlog:====>ready to post:{url=},{data = },{headers = }")
         async with session.post(url=url, json=data, headers=headers) as response:
             if response.status == 200:
                 if True:
@@ -129,13 +129,13 @@ async def handle_request():
         # finish prefill
         print(f"{prefill_instances = },{prefill_addr = }")
         async for _ in forward_request(
-            f"http://{prefill_addr}", prefill_request
+            f"http://{prefill_addr}/v1/completions", prefill_request
         ):
             continue
 
         # return decode
         generator = forward_request(
-            f"http://{decode_addr}", original_request_data
+            f"http://{decode_addr}/v1/completions", original_request_data
         )
         response = await make_response(generator)
         response.timeout = None

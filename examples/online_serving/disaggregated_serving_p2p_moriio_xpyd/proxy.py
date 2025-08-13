@@ -44,7 +44,7 @@ def _listen_for_register(hostname, port):
             elif data["type"] == "register" and data['role'] == "D":
                 if data['http_address'] not in decode_instances:
                     decode_instances[data['http_address']] = data['http_address']
-            print(f"zovlog:====> recv {data},remote_addr={remote_addr}")
+            print(f"zovlog:====> recv {data},remote_addr={remote_addr},{prefill_instances = },{decode_instances = }")
 
 def start_service_discovery(hostname, port):
     if not hostname:

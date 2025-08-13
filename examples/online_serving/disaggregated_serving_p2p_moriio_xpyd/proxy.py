@@ -42,37 +42,38 @@ def _listen_for_register(poller, router_socket):
             # data: {"type": "P", "http_address": "ip:port",
             #        "zmq_address": "ip:port"}
             data = msgpack.loads(message)
-            if data["type"] == "P":
-                global prefill_instances
-                global prefill_cv
-                with prefill_cv:
-                    node = prefill_instances.get(data["http_address"], None)
-                    prefill_instances[data["http_address"]] = (
-                        data["zmq_address"],
-                        time.time() + DEFAULT_PING_SECONDS,
-                    )
-                    _remove_oldest_instances(prefill_instances)
+            print("proxy",data)
+            # if data["type"] == "P":
+            #     global prefill_instances
+            #     global prefill_cv
+            #     with prefill_cv:
+            #         node = prefill_instances.get(data["http_address"], None)
+            #         prefill_instances[data["http_address"]] = (
+            #             data["zmq_address"],
+            #             time.time() + DEFAULT_PING_SECONDS,
+            #         )
+            #         _remove_oldest_instances(prefill_instances)
 
-            elif data["type"] == "D":
-                global decode_instances
-                global decode_cv
-                with decode_cv:
-                    node = decode_instances.get(data["http_address"], None)
-                    decode_instances[data["http_address"]] = (
-                        data["zmq_address"],
-                        time.time() + DEFAULT_PING_SECONDS,
-                    )
-                    _remove_oldest_instances(decode_instances)
-            else:
-                print(
-                    "Unexpected, Received message from %s, data: %s",
-                    remote_address,
-                    data,
-                )
-                return
+            # elif data["type"] == "D":
+            #     global decode_instances
+            #     global decode_cv
+            #     with decode_cv:
+            #         node = decode_instances.get(data["http_address"], None)
+            #         decode_instances[data["http_address"]] = (
+            #             data["zmq_address"],
+            #             time.time() + DEFAULT_PING_SECONDS,
+            #         )
+            #         _remove_oldest_instances(decode_instances)
+            # else:
+            #     print(
+            #         "Unexpected, Received message from %s, data: %s",
+            #         remote_address,
+            #         data,
+            #     )
+            #     return
 
-            if node is None:
-                print(f"🔵Add [HTTP:{data['http_address']}, ZMQ:{data['zmq_address']}]")
+            # if node is None:
+            #     print(f"🔵Add [HTTP:{data['http_address']}, ZMQ:{data['zmq_address']}]")
 
 
 def start_service_discovery(hostname, port):
@@ -185,6 +186,6 @@ async def handle_request():
 
 
 if __name__ == "__main__":
-    t = start_service_discovery("0.0.0.0", 30001)
+    t = start_service_discovery("0.0.0.0", 30010)
     app.run(host="0.0.0.0", port=10001)
     t.join()

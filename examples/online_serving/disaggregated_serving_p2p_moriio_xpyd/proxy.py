@@ -22,18 +22,6 @@ decode_cv = threading.Condition()
 
 DEFAULT_PING_SECONDS = 5
 
-
-def _remove_oldest_instances(instances: dict[str, Any]) -> None:
-    oldest_key = next(iter(instances), None)
-    while oldest_key is not None:
-        value = instances[oldest_key]
-        if value[1] > time.time():
-            break
-        print(f"🔴Remove [HTTP:{oldest_key}, ZMQ:{value[0]}, stamp:{value[1]}]")
-        instances.pop(oldest_key, None)
-        oldest_key = next(iter(instances), None)
-
-
 def _listen_for_register(hostname, port):
     context = zmq.Context()
     router_socket = context.socket(zmq.ROUTER)

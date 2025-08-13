@@ -388,7 +388,7 @@ class MoRIIOConnectorWorker:
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
         if not self.is_producer:
-            self.mori_engine = IOEngine(IOEngineConfig(self.local_ip,self.local_kv_port))
+            self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
         else:
             self.mori_engine = False
         self._ping_thread = None

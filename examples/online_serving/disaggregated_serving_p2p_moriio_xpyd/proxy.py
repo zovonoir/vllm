@@ -72,7 +72,7 @@ async def forward_request(url, data):
     async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
-            # "X-Request-Id": request_id,
+            "X-Request-Id": "fasdfasdfasdf",
         }
         print(f"zovlog:====>ready to post:{url=},{data = },{headers = }")
         async with session.post(url=url, json=data, headers=headers) as response:

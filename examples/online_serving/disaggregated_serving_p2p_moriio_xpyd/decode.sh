@@ -34,5 +34,5 @@ vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa94
         --gpu-memory-utilization 0.2 \
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \
-        --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_port":"25001","kv_connector_extra_config":{"proxy_ip":"10.235.192.56","proxy_port":"30001","http_port":"40005","local_ping_port":"32567","proxy_ping_port":"30010"}}'
+        --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_port":"25001","kv_connector_extra_config":{"proxy_ip":"10.235.192.56","proxy_port":"30001","http_port":"40005","local_ping_port":"32567","proxy_ping_port":"36366"}}'
 # } 2>&1 | tee -a "$LOG_FILE" &

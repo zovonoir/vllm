@@ -126,6 +126,7 @@ async def handle_request():
         # )
 
         # finish prefill
+        print(f"{prefill_instances = },{prefill_addr = }")
         async for _ in forward_request(
             f"http://{prefill_addr}", prefill_request
         ):

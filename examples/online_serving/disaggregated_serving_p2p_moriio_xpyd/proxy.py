@@ -28,11 +28,19 @@ def _listen_for_register(hostname, port):
     router_socket.bind(f"tcp://{hostname}:{port}")
     poller = zmq.Poller()
     poller.register(router_socket,zmq.POLLIN)
+    global prefill_instances
+    global decode_instances
+
     while True:
         socks = dict(poller.poll())
         if router_socket in socks:
             remote_addr,msg = router_socket.recv_multipart()
             data = msgpack.loads(msg)
+            if data['type'] == "HELLO":
+                pass
+            elif data['type'] == "register":
+                if data['http_address'] is not in prefill_instances:
+                    prefill_instances[data['http_address']] = data['http_address']
             print(f"zovlog:====> recv {data},remote_addr={remote_addr}")
 
 def start_service_discovery(hostname, port):

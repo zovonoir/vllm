@@ -378,7 +378,6 @@ class MoRIIOConnectorWorker:
         self.is_producer = self.kv_transfer_config.is_kv_producer
 
         # mori engine
-        self.zmq_context = zmq.Context()
         self._rank = get_world_group().rank 
         self._local_rank = get_world_group().local_rank 
         self.local_ip = get_ip() # P/D节点自身的IP
@@ -387,14 +386,24 @@ class MoRIIOConnectorWorker:
         self.proxy_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_port"]) # 用于监听用户prompt的port,与用户交互的port
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
-        if not self.is_producer:
-            self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
-        else:
-            self.mori_engine = False
+
+        self.zmq_address = f"{self.local_ip}:{self.kv_transfer_config.kv_connector_extra_config['http_port']}"
+        self.zmq_context = zmq.Context()
+
+        self.mori_engine = None
+        self._handle_request_thread = None
         self._ping_thread = None
+        if not self.is_producer:
+            self.router_socket = self.zmq_context.socket(zmq.ROUTER)
+            self.router_socket.bind(f"tcp://{self.zmq_address}")
+            self.poller = zmq.Poller()
+            self.poller.register(self.router_socket, zmq.POLLIN)
+
+            self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
+            self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)
         if self._rank == 0 and self.proxy_ip != "":
             self._ping_thread = threading.Thread(target=self._ping,args=(self.zmq_context,),daemon=True)
-            self._ping_thread.start()
+            self._ping_thread.start() # join?
         logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
         logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
         # Agent.
@@ -484,12 +493,6 @@ class MoRIIOConnectorWorker:
         # finish reading before safely freeing the blocks.
         self.consumer_notification_counts_by_req = defaultdict[ReqId, int](int)
 
-    def __del__(self):
-        """Cleanup background threads on destruction."""
-        self._handshake_initiation_executor.shutdown(wait=False)
-        if self._nixl_handshake_listener_t:
-            self._nixl_handshake_listener_t.join(timeout=0)
-
     def _ping(self,zmq_context):
         index = 1
         sock = zmq_context.socket(zmq.DEALER)
@@ -497,7 +500,7 @@ class MoRIIOConnectorWorker:
         while True:
             try:
                 # print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)}")
-                data = {"type":"HELLO","role":"P" if self.is_producer else "D","index":str(index)}
+                data = {"type":"register","role":"P" if self.is_producer else "D","index":str(index),"request_address":self.zmq_address}
                 sock.send(msgpack.dumps(data))
                 # print(f"zovlog:====>Sent: {data}")
             except ConnectionRefusedError:
@@ -509,6 +512,25 @@ class MoRIIOConnectorWorker:
             finally:
                 time.sleep(3)
                 index += 1
+
+    def handle_proxy_request(self):
+        if self.is_producer:
+            raise NotImplementedError("prefill instance doesn't need to send kv cache in pull mode")
+        while True:
+            socks = dict(self.poller.poll())
+            logger.info(f"zovlog:====> handle_proxy_request: {socks = },{self.router_socket = }")
+            if self.router_socket not in socks:
+                continue
+            else:
+                pass
+
+
+    def __del__(self):
+        """Cleanup background threads on destruction."""
+        self._handshake_initiation_executor.shutdown(wait=False)
+        if self._nixl_handshake_listener_t:
+            self._nixl_handshake_listener_t.join(timeout=0)
+        
         
     @staticmethod
     def _nixl_handshake_listener(metadata: MoRIIOAgentMetadata,

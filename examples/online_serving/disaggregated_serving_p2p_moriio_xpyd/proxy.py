@@ -34,15 +34,23 @@ def _remove_oldest_instances(instances: dict[str, Any]) -> None:
         oldest_key = next(iter(instances), None)
 
 
-def _listen_for_register(poller, router_socket):
-    while True:
-        socks = dict(poller.poll())
-        if router_socket in socks:
-            remote_address, message = router_socket.recv_multipart()
-            # data: {"type": "P", "http_address": "ip:port",
-            #        "zmq_address": "ip:port"}
-            data = msgpack.loads(message)
-            print("proxy",data)
+def _listen_for_register(hostname, port):
+    with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
+        s.bind((hostname,port))
+        while True:
+            s.listen()
+            conn,addr = s.accept()
+            with conn:
+                data = conn.recv(2048)
+                print(f"zovlog:====>proxy received:{data}")
+    # while True:
+    #     socks = dict(poller.poll())
+    #     if router_socket in socks:
+    #         remote_address, message = router_socket.recv_multipart()
+    #         # data: {"type": "P", "http_address": "ip:port",
+    #         #        "zmq_address": "ip:port"}
+    #         data = msgpack.loads(message)
+    #         print("proxy",data)
             # if data["type"] == "P":
             #     global prefill_instances
             #     global prefill_cv
@@ -90,7 +98,8 @@ def start_service_discovery(hostname, port):
     poller.register(router_socket, zmq.POLLIN)
 
     _listener_thread = threading.Thread(
-        target=_listen_for_register, args=[poller, router_socket], daemon=True
+        # target=_listen_for_register, args=[poller, router_socket], daemon=True
+        target = _listen_for_register,args = (hostname, port),daemon=True
     )
     _listener_thread.start()
     return _listener_thread
@@ -186,6 +195,6 @@ async def handle_request():
 
 
 if __name__ == "__main__":
-    t = start_service_discovery("0.0.0.0", 30010)
+    t = start_service_discovery("0.0.0.0", 7777)
     app.run(host="0.0.0.0", port=10001)
     t.join()

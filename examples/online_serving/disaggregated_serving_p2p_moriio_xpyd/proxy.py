@@ -35,7 +35,7 @@ def _remove_oldest_instances(instances: dict[str, Any]) -> None:
 
 
 def _listen_for_register(hostname, port):
-    with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as s:
+    with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as s:
         s.bind((hostname,port))
         while True:
             s.listen()

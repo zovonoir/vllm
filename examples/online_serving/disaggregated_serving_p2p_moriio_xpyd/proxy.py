@@ -134,13 +134,14 @@ async def handle_request():
             continue
 
         # return decode
-        generator = forward_request(
-            f"http://{decode_addr}/v1/completions", original_request_data
-        )
-        response = await make_response(generator)
-        response.timeout = None
+        # generator = forward_request(
+        #     f"http://{decode_addr}/v1/completions", original_request_data
+        # )
+        # response = await make_response(generator)
+        # response.timeout = None
 
-        return response
+        # return response
+        return None
 
     except Exception as e:
         import sys

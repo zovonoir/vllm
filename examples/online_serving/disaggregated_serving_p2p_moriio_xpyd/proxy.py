@@ -36,6 +36,7 @@ def _remove_oldest_instances(instances: dict[str, Any]) -> None:
 
 def _listen_for_register(hostname, port):
     with socket.socket(socket.AF_INET,socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         print(f"zovlog:===> trying bind to {(hostname,port)}")
         s.bind((hostname,port))
         s.listen(10)

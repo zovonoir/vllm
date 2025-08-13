@@ -493,12 +493,12 @@ class MoRIIOConnectorWorker:
         index = 1
         while True:
             try:
-                logger.info(f"zovlog:====>trying send {index}th data to proxy...")
+                logger.info(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)}")
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     data = {"type":"HELLO","role":"P" if self.is_producer else "D","index":str(index)}
                     s.bind((self.local_ip,self.local_ping_port))
-                    # s.connect((self.proxy_ip, self.proxy_ping_port))
-                    s.connect((self.local_ip,6666))
+                    s.connect((self.proxy_ip, self.proxy_ping_port))
+                    # s.connect((self.local_ip,6666))
                     s.sendall(msgpack.dumps(data))
                     logger.info(f"zovlog:====>Sent: {data}")
                     s.close()

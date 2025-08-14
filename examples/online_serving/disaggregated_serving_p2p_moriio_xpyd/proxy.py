@@ -102,44 +102,48 @@ async def handle_request():
         global prefill_cv
         with prefill_cv:
             prefill_list = list(prefill_instances.items())
-            # prefill_addr, prefill_zmq_addr = prefill_list[count % len(prefill_list)]
-            # prefill_zmq_addr = prefill_zmq_addr[0]
             prefill_addr = prefill_list[count % len(prefill_list)][1]
 
         global decode_instances
         global decode_cv
         with decode_cv:
             decode_list = list(decode_instances.items())
-            # decode_addr, decode_zmq_addr = decode_list[count % len(decode_list)]
-            # decode_zmq_addr = decode_zmq_addr[0]
-            decode_addr = decode_list[count % len(decode_list)][1]
 
-        # print(
-        #     f"handle_request count: {count}, [HTTP:{prefill_addr}, "
-        #     f"ZMQ:{prefill_zmq_addr}] 👉 [HTTP:{decode_addr}, "
-        #     f"ZMQ:{decode_zmq_addr}]"
-        # )
+            decode_addr = decode_list[count % len(decode_list)][1]
         count += 1
 
-        # request_id = (
-        #     f"___prefill_addr_{prefill_zmq_addr}___decode_addr_"
-        #     f"{decode_zmq_addr}_{random_uuid()}"
+        # # finish prefill
+        # print(f"{prefill_instances = },{prefill_addr = }")
+        # prefill_generator = forward_request(
+        #     f"http://{prefill_addr}/v1/completions", prefill_request
         # )
+        # prefill_result = make_response(prefill_generator)
+        # # print(f"{prefill_result = }")
+        # # return decode
 
-        # finish prefill
-        print(f"{prefill_instances = },{prefill_addr = }")
-        prefill_generator = forward_request(
+        prefill_response_data = []
+        async for chunk in forward_request(
             f"http://{prefill_addr}/v1/completions", prefill_request
-        )
-        prefill_result = make_response(prefill_generator)
-        print(f"{prefill_result = }")
-        # return decode
+        ):
+            prefill_response_data.append(chunk)
+            print(f"zovlog:====< chunk.decode() = {chunk.decode()}")
+        
+        full_prefill_response = b"".join(prefill_response_data)
+        try:
+            import json
+            prefill_json = json.loads(full_prefill_response)
+            print(f"zovlog:=====> {prefill_json = }")
+        except:
+            pass
+
+
+
         generator = forward_request(
             f"http://{decode_addr}/v1/completions", original_request_data
         )
         response = await make_response(generator)
         response.timeout = None
-        print(f"{response = }")
+        # print(f"{response = }")
         return response
         return None
 

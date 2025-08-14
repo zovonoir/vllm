@@ -387,27 +387,27 @@ class MoRIIOConnectorWorker:
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
 
-        # self.zmq_address = f"{self.local_ip}:{self.kv_transfer_config.kv_connector_extra_config['http_port']}"
-        # self.zmq_context = zmq.Context()
+        self.zmq_address = f"{self.local_ip}:{self.kv_transfer_config.kv_connector_extra_config['http_port']}"
+        self.zmq_context = zmq.Context()
 
-        # self.mori_engine = None
-        # self._handle_request_thread = None
-        # self._ping_thread = None
-        # if not self.is_producer:
-        #     self.router_socket = self.zmq_context.socket(zmq.ROUTER)
-        #     self.router_socket.bind(f"tcp://{self.zmq_address}")
-        #     self.poller = zmq.Poller()
-        #     self.poller.register(self.router_socket, zmq.POLLIN)
+        self.mori_engine = None
+        self._handle_request_thread = None
+        self._ping_thread = None
+        if not self.is_producer:
+            self.router_socket = self.zmq_context.socket(zmq.ROUTER)
+            self.router_socket.bind(f"tcp://{self.zmq_address}")
+            self.poller = zmq.Poller()
+            self.poller.register(self.router_socket, zmq.POLLIN)
 
-        #     self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
-        #     self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)
-        #     self._handle_request_thread.start()
-        # if self._rank == 0 and self.proxy_ip != "":
-        #     self._ping_thread = threading.Thread(target=self._ping,args=(self.zmq_context,),daemon=True)
-        #     self._ping_thread.start() # join?
+            self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
+            # self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)
+            # self._handle_request_thread.start()
+        if self._rank == 0 and self.proxy_ip != "":
+            self._ping_thread = threading.Thread(target=self._ping,args=(self.zmq_context,),daemon=True)
+            self._ping_thread.start() # join?
 
-        # logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
-        # logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
+        logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
+        logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.

@@ -223,6 +223,7 @@ class MoRIIOConnectorScheduler:
         request: "Request",
         num_computed_tokens: int,
     ) -> tuple[int, bool]:
+        logger.info(f"zovlog:=====> call get_num_new_matched_tokens,{self.is_producer = }")
         if self.is_producer:
             return 0, False
 

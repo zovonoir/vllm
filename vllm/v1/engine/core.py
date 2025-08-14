@@ -834,6 +834,7 @@ class EngineCoreProc(EngineCore):
             ready_event.set()
             del ready_event
             while True:
+                logger.info(f"zovlog:--------> input socket polling!")
                 for input_socket, _ in poller.poll():
                     logger.info(f"zovlog:--------> input socket triggered!")
                     # (RequestType, RequestData)

@@ -387,7 +387,7 @@ class MoRIIOConnectorWorker:
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
 
-        self.zmq_address = f"{self.local_ip}:{self.kv_transfer_config.kv_connector_extra_config['kv_port']}"
+        self.zmq_address = f"{self.local_ip}:{self.kv_transfer_config.kv_port}"
         self.zmq_context = zmq.Context()
 
         self.mori_engine = None

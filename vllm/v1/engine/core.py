@@ -794,7 +794,7 @@ class EngineCoreProc(EngineCore):
         # Msgpack serialization decoding.
         add_request_decoder = MsgpackDecoder(EngineCoreRequest)
         generic_decoder = MsgpackDecoder()
-
+        logger.info(f"zoglog:------>{input_addresses = }")
         with ExitStack() as stack, zmq.Context() as ctx:
             input_sockets = [
                 stack.enter_context(

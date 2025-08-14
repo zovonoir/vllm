@@ -216,6 +216,7 @@ class MoRIIOConnectorScheduler:
         self._reqs_need_recv: dict[ReqId, tuple[Request, list[int]]] = {}
         # Reqs to send and their expiration time
         self._reqs_need_send: dict[ReqId, float] = {}
+        self.is_producer = vllm_config.kv_transfer_config.kv_role == "is_producer"
 
     def get_num_new_matched_tokens(
         self,

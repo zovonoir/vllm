@@ -389,6 +389,7 @@ class Scheduler(SchedulerInterface):
                     # Total computed tokens (local + external).
                     num_computed_tokens = (num_new_local_computed_tokens +
                                            num_external_computed_tokens)
+                    logger.info(f"zovlog:--------> {new_computed_blocks = }, {num_new_local_computed_tokens = } ,{num_external_computed_tokens=}, {load_kv_async=} ,{num_computed_tokens = }")
                 # KVTransfer: WAITING reqs have num_computed_tokens > 0
                 # after async KV recvs are completed.
                 else:

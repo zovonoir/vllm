@@ -393,7 +393,7 @@ class MoRIIOConnectorWorker:
         metadata/kvcache: local_ip:local_kv_port <-> ...
         '''
         self.zmq_context = zmq.Context()
-        self.metadata_address = f"{self.local_ip}:{self.kv_transfer_config.local_ping_port}"
+        self.metadata_address = f"{self.local_ip}:{self.local_ping_port}"
         self.request_address = f"{self.local_ip}:{self.http_port}"
         self.ping_address = f"{self.local_ip}:{self.local_ping_port}"
 

@@ -401,6 +401,7 @@ class MoRIIOConnectorWorker:
 
             self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
             self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)
+            self._handle_request_thread.start()
         if self._rank == 0 and self.proxy_ip != "":
             self._ping_thread = threading.Thread(target=self._ping,args=(self.zmq_context,),daemon=True)
             self._ping_thread.start() # join?

@@ -139,7 +139,7 @@ async def handle_request():
         )
         response = await make_response(generator)
         response.timeout = None
-
+        print(f"{response = }")
         return response
         return None
 

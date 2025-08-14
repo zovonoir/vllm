@@ -395,9 +395,9 @@ class MoRIIOConnectorWorker:
         self._ping_thread = None
         if not self.is_producer:
             self.router_socket = self.zmq_context.socket(zmq.ROUTER)
-            self.router_socket.bind(f"tcp://{self.zmq_address}")
+            # self.router_socket.bind(f"tcp://{self.zmq_address}")
             self.poller = zmq.Poller()
-            self.poller.register(self.router_socket, zmq.POLLIN)
+            # self.poller.register(self.router_socket, zmq.POLLIN)
 
             self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
             # self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)

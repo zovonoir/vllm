@@ -223,18 +223,38 @@ class MoRIIOConnectorScheduler:
         request: "Request",
         num_computed_tokens: int,
     ) -> tuple[int, bool]:
-        logger.info(f"zovlog:=====> call get_num_new_matched_tokens,{self.is_producer = }")
-        if self.is_producer:
-            return 0, False
+        """
+        For remote prefill, pull all prompt blocks from remote
+        asynchronously relative to engine execution.
 
-        num_external_tokens = (len(request.prompt_token_ids) - 1 -
-                               num_computed_tokens)
+        Args:
+            request (Request): the request object.
+            num_computed_tokens (int): the number of locally
+                computed tokens for this request
+        Returns:
+            * the number of tokens that can be loaded from the
+              external KV cache beyond what is already computed.
+            * true if the external KV cache tokens will be loaded
+              asynchronously (between scheduler steps).
+        """
 
-        if num_external_tokens < 0:
-            num_external_tokens = 0
+        params = request.kv_transfer_params
+        logger.debug(
+            "NIXLConnector get_num_new_matched_tokens: "
+            "num_computed_tokens=%s, kv_transfer_params=%s",
+            num_computed_tokens, params)
 
-        return num_external_tokens, False
+        if params is not None and params.get("do_remote_prefill"):
+            # Remote prefill: get all prompt blocks from remote.
+            assert num_computed_tokens % self.block_size == 0
+            rounded_num_prompt_tokens = round_down(
+                len(request.prompt_token_ids), self.block_size)
+            count = max(rounded_num_prompt_tokens - num_computed_tokens, 0)
+            if count > 0:
+                return count, True
 
+        # No remote prefill for this request.
+        return 0, False
 
 
     def update_state_after_alloc(self, request: "Request",
@@ -371,10 +391,12 @@ class MoRIIOConnectorWorker:
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
         self.http_port = int(self.kv_transfer_config.kv_connector_extra_config['http_port']) # 用于接收request的port
+        self.local_metadata_port = int(self.kv_transfer_config.kv_connector_extra_config['metadata_port'])
         '''
         ping: local_ip:local_ping_port -> proxy_ip:proxy_ping_port
         prompt request: user_ip:user_port -> proxy_ip:proxy_listening_port -> local_ip:http_port
-        metadata/kvcache: local_ip:local_kv_port <-> ...
+        kvcache: local_ip:local_kv_port <-> ...
+        metadata: local_ip:local_metadata_port <->
         '''
         self.zmq_context = zmq.Context()
         self.metadata_address = f"{self.local_ip}:{self.local_ping_port}"

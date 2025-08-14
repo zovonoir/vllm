@@ -391,7 +391,7 @@ class MoRIIOConnectorWorker:
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
         self.http_port = int(self.kv_transfer_config.kv_connector_extra_config['http_port']) # 用于接收request的port
-        self.local_metadata_port = int(self.kv_transfer_config.kv_connector_extra_config['metadata_port'])
+        # self.local_metadata_port = int(self.kv_transfer_config.kv_connector_extra_config['metadata_port'])
         '''
         ping: local_ip:local_ping_port -> proxy_ip:proxy_ping_port
         prompt request: user_ip:user_port -> proxy_ip:proxy_listening_port -> local_ip:http_port

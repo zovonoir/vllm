@@ -386,18 +386,25 @@ class MoRIIOConnectorWorker:
         self.proxy_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_port"]) # 用于监听用户prompt的port,与用户交互的port
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
-
-        self.zmq_address = f"{self.local_ip}:{self.kv_transfer_config.kv_port}"
+        self.http_port = int(self.kv_transfer_config.kv_connector_extra_config['http_port']) # 用于接收request的port
+        '''
+        ping: local_ip:local_ping_port -> proxy_ip:proxy_ping_port
+        prompt request: user_ip:user_port -> proxy_ip:proxy_listening_port -> local_ip:http_port
+        metadata/kvcache: local_ip:local_kv_port <-> ...
+        '''
         self.zmq_context = zmq.Context()
+        self.metadata_address = f"{self.local_ip}:{self.kv_transfer_config.local_ping_port}"
+        self.request_address = f"{self.local_ip}:{self.http_port}"
+        self.ping_address = f"{self.local_ip}:{self.local_ping_port}"
 
         self.mori_engine = None
         self._handle_request_thread = None
         self._ping_thread = None
         if not self.is_producer:
-            self.router_socket = self.zmq_context.socket(zmq.ROUTER)
-            self.router_socket.bind(f"tcp://{self.zmq_address}")
             self.poller = zmq.Poller()
-            self.poller.register(self.router_socket, zmq.POLLIN)
+            self.metadata_socket = self.zmq_context.socket(zmq.ROUTER)
+            self.metadata_socket.bind(f"tcp://{self.metadata_address}")
+            self.poller.register(self.metadata_socket, zmq.POLLIN)
 
             self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
             self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)
@@ -501,7 +508,7 @@ class MoRIIOConnectorWorker:
         sock.connect(f"tcp://{self.proxy_ip}:{self.proxy_ping_port}")
         while True:
             try:
-                data = {"type":"register","role":"P" if self.is_producer else "D","index":str(index),"request_address":self.zmq_address}
+                data = {"type":"register","role":"P" if self.is_producer else "D","index":str(index),"request_address":self.request_address}
                 # print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)},,,,{data = }")
                 
                 sock.send(msgpack.dumps(data))
@@ -521,8 +528,8 @@ class MoRIIOConnectorWorker:
             raise NotImplementedError("prefill instance doesn't need to send kv cache in pull mode")
         while True:
             socks = dict(self.poller.poll())
-            # logger.info(f"zovlog:====> handle_proxy_request: {socks = },{self.router_socket = }")
-            if self.router_socket not in socks:
+            logger.info(f"zovlog:====> handle_proxy_request: {socks = },{self.router_socket = }")
+            if self.metadata_socket not in socks:
                 continue
             else:
                 pass

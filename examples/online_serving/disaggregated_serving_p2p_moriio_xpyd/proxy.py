@@ -131,8 +131,8 @@ async def handle_request():
         prefill_generator = forward_request(
             f"http://{prefill_addr}/v1/completions", prefill_request
         )
-        prefill_result = next(prefill_request)
-        print(f"{prefill_result = }")
+        # prefill_result = next(prefill_request)
+        print(f"{prefill_request = }")
         # return decode
         generator = forward_request(
             f"http://{decode_addr}/v1/completions", original_request_data

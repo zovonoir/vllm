@@ -218,40 +218,22 @@ class MoRIIOConnectorScheduler:
         self._reqs_need_send: dict[ReqId, float] = {}
 
     def get_num_new_matched_tokens(
-            self, request: "Request",
-            num_computed_tokens: int) -> tuple[int, bool]:
-        """
-        For remote prefill, pull all prompt blocks from remote
-        asynchronously relative to engine execution.
-        
-        Args:
-            request (Request): the request object.
-            num_computed_tokens (int): the number of locally
-                computed tokens for this request
-        Returns:
-            * the number of tokens that can be loaded from the 
-              external KV cache beyond what is already computed.
-            * true if the external KV cache tokens will be loaded
-              asynchronously (between scheduler steps).
-        """
+        self,
+        request: "Request",
+        num_computed_tokens: int,
+    ) -> tuple[int, bool]:
+        if self.is_producer:
+            return 0, False
 
-        params = request.kv_transfer_params
-        logger.debug(
-            "NIXLConnector get_num_new_matched_tokens: "
-            "num_computed_tokens=%s, kv_transfer_params=%s",
-            num_computed_tokens, params)
+        num_external_tokens = (len(request.prompt_token_ids) - 1 -
+                               num_computed_tokens)
 
-        if params is not None and params.get("do_remote_prefill"):
-            # Remote prefill: get all prompt blocks from remote.
-            assert num_computed_tokens % self.block_size == 0
-            rounded_num_prompt_tokens = round_down(
-                len(request.prompt_token_ids), self.block_size)
-            count = max(rounded_num_prompt_tokens - num_computed_tokens, 0)
-            if count > 0:
-                return count, True
+        if num_external_tokens < 0:
+            num_external_tokens = 0
 
-        # No remote prefill for this request.
-        return 0, False
+        return num_external_tokens, False
+
+
 
     def update_state_after_alloc(self, request: "Request",
                                  blocks: "KVCacheBlocks",

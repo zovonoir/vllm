@@ -1565,7 +1565,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 skip_cuda_graphs=skip_cuda_graphs,
         ), self.maybe_get_kv_connector_output(
                 scheduler_output) as kv_connector_output:
-
+            logger.info(f"zovlog:======> {input_ids = },,,,,,,,,,,,,,,")
             model_output = self.model(
                 input_ids=input_ids,
                 positions=positions,

@@ -131,7 +131,7 @@ async def handle_request():
         prefill_generator = forward_request(
             f"http://{prefill_addr}/v1/completions", prefill_request
         )
-        prefill_result = next(prefill_generator)
+        prefill_result = make_response(prefill_generator)
         print(f"{prefill_result = }")
         # return decode
         generator = forward_request(

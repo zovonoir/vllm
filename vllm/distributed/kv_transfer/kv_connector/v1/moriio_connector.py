@@ -95,16 +95,29 @@ class MoRIIOConnectorMetadata(KVConnectorMetadata):
     def __init__(self):
         self.reqs_to_recv: dict[ReqId, ReqMeta] = {}
         self.reqs_to_send: dict[ReqId, float] = {}
+
     def __str__(self):
         return_str = ""
         for req_id,req_meta in self.reqs_to_recv.items():
             return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
-        return f"MoRIIOConnectorMetadata:{return_str}"
+        return_str = f"MoRIIOConnectorMetadata:reqs_to_recv:{return_str},"
+
+        for req_id,req_meta in self.reqs_to_send.items():
+            return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
+        return_str = f"MoRIIOConnectorMetadata:reqs_to_send:{return_str},"
+        return return_str
+    
     def __repr__(self):
         return_str = ""
         for req_id,req_meta in self.reqs_to_recv.items():
             return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
-        return f"MoRIIOConnectorMetadata:{return_str}"
+        return_str = f"MoRIIOConnectorMetadata:reqs_to_recv:{return_str},"
+
+        for req_id,req_meta in self.reqs_to_send.items():
+            return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
+        return_str = f"MoRIIOConnectorMetadata:reqs_to_send:{return_str},"
+        return return_str
+    
     def add_new_req(
         self,
         request_id: ReqId,
@@ -271,11 +284,11 @@ class MoRIIOConnectorScheduler:
                                  num_external_tokens: int):
 
         params = request.kv_transfer_params
-        logger.debug(
+        logger.info(
             "NIXLConnector update_state_after_alloc: "
             "num_external_tokens=%s, kv_transfer_params=%s",
             num_external_tokens, params)
-
+        logger.info(f"zovlog:+++++++++++>{params.get('do_remote_prefill') = },{params = }")
         if params is not None and params.get("do_remote_prefill"):
             if params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host",

@@ -87,8 +87,9 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
         }
         async with session.post(url=endpoint, json=req_data_copy, headers=headers) as response:
             if response.status == 200:
-                async for chunk_bytes in response.content.iter_chunked(1024):
-                        yield chunk_bytes
+                return await response.json()
+                # async for chunk_bytes in response.content.iter_chunked(1024):
+                #         yield chunk_bytes
             else:
                 raise RuntimeError("response.status != 200")
 

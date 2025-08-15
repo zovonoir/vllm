@@ -40,11 +40,11 @@ def _listen_for_register(hostname, port):
             if data['type'] == "HELLO":
                 pass
             elif data['type'] == "register" and data['role'] == "P":
-                if data['request_address'] not in prefill_instances:
+                if "http://" + data['request_address']+"/v1/completions" not in prefill_instances:
                     prefill_instances.append("http://" + data['request_address']+"/v1/completions")
 
             elif data["type"] == "register" and data['role'] == "D":
-                if data['request_address'] not in decode_instances:
+                if "http://" + data['request_address']+"/v1/completions" not in decode_instances:
                     decode_instances.append("http://" + data['request_address']+"/v1/completions")
 
             print(f"zovlog:====> recv {data},remote_addr={remote_addr},{prefill_instances = },{decode_instances = }")

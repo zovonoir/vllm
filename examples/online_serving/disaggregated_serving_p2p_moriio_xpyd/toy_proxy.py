@@ -95,6 +95,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
                 raise RuntimeError("response.status != 200")
 
 async def send_request_to_decode(endpoint,req_data,request_id):
+    print(f"zovlog ========================== send response to decode {req_data}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -130,17 +131,6 @@ async def handle_request():
     response = await make_response(generator)
     request_nums += 1
     return response
-
-
-'''
-        "do_remote_decode": True,
-        "do_remote_prefill": False,
-        "remote_engine_id": None,
-        "remote_block_ids": None,
-        "remote_host": None,
-        "remote_port": None
-
-'''
 
 
 if __name__ == '__main__':

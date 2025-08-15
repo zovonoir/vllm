@@ -795,7 +795,7 @@ class EngineCoreProc(EngineCore):
         # Msgpack serialization decoding.
         add_request_decoder = MsgpackDecoder(EngineCoreRequest)
         generic_decoder = MsgpackDecoder()
-        logger.info(f"zoglog:------>{input_addresses = }")
+        # logger.info(f"zovlog:------>{input_addresses = }")
         with ExitStack() as stack, zmq.Context() as ctx:
             input_sockets = [
                 stack.enter_context(
@@ -835,9 +835,9 @@ class EngineCoreProc(EngineCore):
             ready_event.set()
             del ready_event
             while True:
-                logger.info(f"zovlog:--------> input socket polling!")
+                # logger.info(f"zovlog:--------> input socket polling!")
                 for input_socket, _ in poller.poll():
-                    logger.info(f"zovlog:--------> input socket triggered!")
+                    # logger.info(f"zovlog:--------> input socket triggered!")
                     # (RequestType, RequestData)
                     type_frame, *data_frames = input_socket.recv_multipart(
                         copy=False)
@@ -852,6 +852,7 @@ class EngineCoreProc(EngineCore):
                         request = generic_decoder.decode(data_frames)
 
                     # Push to input queue for core busy loop.
+                    logger.info(f"zovlog:process input socket {request = }")
                     self.input_queue.put_nowait((request_type, request))
 
     def process_output_sockets(self, output_paths: list[str],

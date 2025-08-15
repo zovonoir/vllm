@@ -11,6 +11,7 @@ import copy
 import threading
 from quart import Quart, make_response, request
 import httpx
+import re
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from typing import Dict,List
@@ -111,20 +112,35 @@ async def send_request_to_decode(endpoint,req_data,request_id):
 @app.route("/v1/chat/completions", methods=["POST"])
 async def handle_request():
     global request_nums
+    extract_ip_port = lambda url: re.search(r'//(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)', url).groups()
     req_data = await request.get_json()
     print(f"req_data = {req_data}")
     request_id = str(uuid.uuid4())
     prefill_instance_endpoint = prefill_instances[request_nums % len(prefill_instances)]
-    decode_instances_endpoint = decode_instances[request_nums % len(decode_instances)]
+    decode_instance_endpoint = decode_instances[request_nums % len(decode_instances)]
     response_json = await send_request_to_prefill(prefill_instance_endpoint,req_data,request_id)
-    print(f"-----------------------------------{response_json = }")
-    kv_transfer_params = response_json.get('kv_transfer_params', {})
-    if len(kv_transfer_params) == 0:
-        raise RuntimeError("len(kv_transfer_params) == 0")
-    req_data["kv_transfer_params"] = kv_transfer_params
-    print("-------------->",req_data)
+    # 现在decode可以获取prefill的所有信息了
+    ip, port = extract_ip_port(prefill_instance_endpoint)
+    response_json['kv_transfer_params']["do_remote_decode"] = False
+    response_json['kv_transfer_params']["do_remote_prefill"] = True
+    response_json['kv_transfer_params']["remote_host"] = ip
+    response_json['kv_transfer_params']["remote_port"] = port
 
+    generator = send_request_to_decode(decode_instance_endpoint,response_json,request_id)
+    response = await make_response(generator)
     request_nums += 1
+    return response
+
+
+'''
+        "do_remote_decode": True,
+        "do_remote_prefill": False,
+        "remote_engine_id": None,
+        "remote_block_ids": None,
+        "remote_host": None,
+        "remote_port": None
+
+'''
 
 
 if __name__ == '__main__':

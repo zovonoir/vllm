@@ -852,7 +852,8 @@ class EngineCoreProc(EngineCore):
                         request = generic_decoder.decode(data_frames)
 
                     # Push to input queue for core busy loop.
-                    logger.info(f"zovlog:process input socket {request = },{type(request) = },{request[0].kv_transfer_params = }")
+                    if not isinstance(request[0],int):
+                        logger.info(f"zovlog:process input socket {request = },{type(request) = },{request[0].kv_transfer_params = }")
                     self.input_queue.put_nowait((request_type, request))
 
     def process_output_sockets(self, output_paths: list[str],

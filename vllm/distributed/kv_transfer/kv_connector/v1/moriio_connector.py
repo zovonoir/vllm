@@ -286,9 +286,8 @@ class MoRIIOConnectorScheduler:
         
         params = request.kv_transfer_params # zovlog: params 是none
         logger.info(
-            "NIXLConnector update_state_after_alloc: "
-            "num_external_tokens=%s, kv_transfer_params=%s",
-            num_external_tokens, params)
+            f"moriioConnector update_state_after_alloc: "
+            f"num_external_tokens={num_external_tokens}, kv_transfer_params={params},{params.get("do_remote_prefill") = },{params.get("remote_block_ids") = }")
         
         if params is not None and params.get("do_remote_prefill"):
             if params.get("remote_block_ids"):

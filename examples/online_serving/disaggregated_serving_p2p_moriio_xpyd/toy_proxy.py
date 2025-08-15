@@ -62,8 +62,9 @@ def start_service_discovery(hostname, port):
     return _listener_thread
 
 async def send_request_to_prefill(endpoint,req_data,request_id):
+    print(f"zovlog:======> proxy {endpoint = }")
     req_data_copy = copy.deepcopy(req_data)
-    logger.info(f"zovlog:======> proxy {endpoint = }")
+    
     # 本地做prefill,且decode只需要pull模式,所以prefill不需要在这里知晓远程decode任何信息
     req_data_copy['kv_transfer_params'] = {
         "do_remote_decode": True,
@@ -110,6 +111,7 @@ async def send_request_to_decode(endpoint,req_data,request_id):
 async def handle_request():
     global request_nums
     req_data = await request.get_json()
+    print(f"req_data = {req_data}")
     request_id = str(uuid.uuid4())
     prefill_instance_endpoint = prefill_instances[request_nums % len(prefill_instances)]
     decode_instances_endpoint = decode_instances[request_nums % len(decode_instances)]

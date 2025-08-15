@@ -145,7 +145,7 @@ async def handle_request():
         response.timeout = None
         # print(f"{response = }")
         return response
-        return None
+        # return None
 
     except Exception as e:
         import sys

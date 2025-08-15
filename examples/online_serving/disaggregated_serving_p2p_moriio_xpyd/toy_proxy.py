@@ -108,7 +108,7 @@ async def send_request_to_decode(endpoint,req_data,request_id):
 @app.route("/v1/chat/completions", methods=["POST"])
 async def handle_request():
     global request_nums
-    req_data = await request.json()
+    req_data = await request.get_json()
     request_id = str(uuid.uuid4())
     prefill_instance_endpoint = prefill_instances[request_nums % len(prefill_instances)]
     decode_instances_endpoint = decode_instances[request_nums % len(decode_instances)]

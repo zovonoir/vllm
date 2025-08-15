@@ -127,7 +127,17 @@ async def handle_request():
     response_json['kv_transfer_params']["remote_host"] = ip
     response_json['kv_transfer_params']["remote_port"] = port
 
-    generator = send_request_to_decode(decode_instance_endpoint,response_json,request_id)
+    req_data['max_tokens'] -= 1
+    req_data['prompt'] = response_json['choices'][0]['text']
+    req_data['kv_transfer_params'] = {
+        "do_remote_decode": False,
+        "do_remote_prefill": True,
+        "remote_engine_id": response_json['kv_transfer_params']["remote_engine_id"],
+        "remote_block_ids": response_json['kv_transfer_params']["remote_block_ids"],
+        "remote_host": response_json['kv_transfer_params']["remote_host"],
+        "remote_port": response_json['kv_transfer_params']["remote_port"]
+    }
+    generator = send_request_to_decode(decode_instance_endpoint,req_data,request_id)
     response = await make_response(generator)
     request_nums += 1
     return response
@@ -137,3 +147,14 @@ if __name__ == '__main__':
     t = start_service_discovery("0.0.0.0", 36367)
     app.run(host="0.0.0.0", port=10001)
     t.join()
+
+
+
+
+
+'''
+
+ {'id': 'cmpl-dde9d301-7e84-4eb1-8735-edf196d4455a', 'object': 'text_completion', 'created': 1755246958, 'model': 'deepseek-ai/DeepSeek-R1', 'choices': [{'index': 0, 'text': ' I', 'logprobs': None, 'finish_reason': 'length', 'stop_reason': None, 'prompt_logprobs': None}], 'service_tier': None, 'system_fingerprint': None, 'usage': {'prompt_tokens': 6, 'total_tokens': 7, 'completion_tokens': 1, 'prompt_tokens_details': None}, 'kv_transfer_params': {'do_remote_prefill': True, 'do_remote_decode': False, 'remote_block_ids': [], 'remote_engine_id': '731a3c55-da99-4465-892b-0ba1ce8f1280', 'remote_host': '10.235.192.56', 'remote_port': '20005', 'tp_size': 1}}
+
+'''
+

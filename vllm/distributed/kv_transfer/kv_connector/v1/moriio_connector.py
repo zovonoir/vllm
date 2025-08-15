@@ -95,7 +95,11 @@ class MoRIIOConnectorMetadata(KVConnectorMetadata):
     def __init__(self):
         self.reqs_to_recv: dict[ReqId, ReqMeta] = {}
         self.reqs_to_send: dict[ReqId, float] = {}
-
+    def __str__(self):
+        return_str = ""
+        for req_id,req_meta in self.reqs_to_recv.items():
+            return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
+        return f"MoRIIOConnectorMetadata:{return_str}"
     def add_new_req(
         self,
         request_id: ReqId,

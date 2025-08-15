@@ -275,6 +275,7 @@ class EngineCore:
             scheduler_output)
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output)  # type: ignore
+        logger.info(f"zovlog:++++++> {engine_core_outputs = }")
 
         return (engine_core_outputs,
                 scheduler_output.total_num_scheduled_tokens > 0)

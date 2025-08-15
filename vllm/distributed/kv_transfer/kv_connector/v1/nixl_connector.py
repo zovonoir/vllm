@@ -1108,8 +1108,6 @@ class NixlConnectorWorker:
         return done_req_ids
 
     def start_load_kv(self, metadata: NixlConnectorMetadata):
-        import pdb
-        breakpoint()
         """
         Start loading by triggering non-blocking nixl_xfer.
         We check for these trnxs to complete in each step().

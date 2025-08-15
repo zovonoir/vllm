@@ -1002,11 +1002,12 @@ class MoRIIOConnectorWorker:
         Start loading by triggering non-blocking nixl_xfer.
         We check for these trnxs to complete in each step().
         """
-        if self.is_producer:
-            logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
-            return
-        
+        # if self.is_producer:
+        #     logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+        #     return
+        logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
         for req_id, meta in metadata.reqs_to_recv.items():
+            logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = }")
             remote_engine_id = meta.remote_engine_id
             logger.debug(
                 "start_load_kv for request %s from remote engine %s. "

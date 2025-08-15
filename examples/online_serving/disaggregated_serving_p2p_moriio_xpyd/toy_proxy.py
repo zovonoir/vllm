@@ -113,7 +113,7 @@ async def handle_request():
     prefill_instance_endpoint = prefill_instances[request_nums % len(prefill_instances)]
     decode_instances_endpoint = decode_instances[request_nums % len(decode_instances)]
     response = await make_response(send_request_to_prefill(prefill_instance_endpoint,req_data,request_id))
-    response_json = response.json()
+    response_json = await response.get_json()
     kv_transfer_params = response_json.get('kv_transfer_params', {})
     if len(kv_transfer_params) == 0:
         raise RuntimeError("len(kv_transfer_params) == 0")

@@ -1007,7 +1007,7 @@ class MoRIIOConnectorWorker:
         #     return
         logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
         for req_id, meta in metadata.reqs_to_recv.items():
-            logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = }")
+            logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = },{meta.local_block_ids = },{meta.remote_block_ids = },{meta.remote_engine_id = }")
             remote_engine_id = meta.remote_engine_id
             logger.debug(
                 "start_load_kv for request %s from remote engine %s. "

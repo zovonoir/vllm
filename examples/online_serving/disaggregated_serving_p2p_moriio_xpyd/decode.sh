@@ -21,7 +21,7 @@ export VLLM_ROCM_USE_AITER=1
 export VLLM_ENABLE_DSV3=0  
 export SAFETENSORS_FAST_GPU=1   
 
-# {
+{
 vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa9480d55605af694f39b081c455/  \
         -tp 1   \
         --block-size 16  \
@@ -35,4 +35,4 @@ vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa94
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \
         --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_port":"32987","kv_connector_extra_config":{"proxy_ip":"10.235.192.56","proxy_port":"30001","http_port":"40005","local_ping_port":"32567","proxy_ping_port":"36367"}}'
-# } 2>&1 | tee -a "$LOG_FILE" &
+} 2>&1 &

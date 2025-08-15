@@ -455,6 +455,7 @@ class Scheduler(SchedulerInterface):
                 # if a load is needed. Note that
                 # This information is used to determine if a load is
                 # needed for this request.
+                logger.info(f"zovlog:============> prepare self.connector.update_state_after_alloc,{self.connector = },{request = }")
                 if self.connector is not None:
                     self.connector.update_state_after_alloc(
                         request,

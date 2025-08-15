@@ -288,7 +288,7 @@ class NixlConnectorScheduler:
     def update_state_after_alloc(self, request: "Request",
                                  blocks: "KVCacheBlocks",
                                  num_external_tokens: int):
-
+        logger.info(f"zovlog: -------------- enter update_state_after_alloc,request = {request},{request.kv_transfer_params = }")
         params = request.kv_transfer_params
         logger.debug(
             "NIXLConnector update_state_after_alloc: "

@@ -3,7 +3,7 @@
 pkill -9 -f python
 sleep 3
 git pull
-TARGET_GUID="30786afffee60ec9"
+TARGET_GUID="0c6e4cfffe7117d7"
 
 CURRENT_GUID=$(ibv_devices | awk '/bnxt_re_bond0/ {print $2}')
 

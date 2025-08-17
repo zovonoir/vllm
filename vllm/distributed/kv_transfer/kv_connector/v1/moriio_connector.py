@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from vllm.utils import current_stream, get_ip
 from vllm.distributed.parallel_state import get_world_group
 import threading
-
+ 
 import msgspec
 import torch
 import zmq
@@ -86,6 +86,7 @@ class ReqMeta:
     remote_block_ids: list[int]
     remote_host: str
     remote_port: int
+    remote_handshake_port:int
     remote_engine_id: str
     tp_size: int
 
@@ -119,6 +120,7 @@ class MoRIIOConnectorMetadata(KVConnectorMetadata):
             remote_engine_id=kv_transfer_params["remote_engine_id"],
             remote_host=kv_transfer_params["remote_host"],
             remote_port=kv_transfer_params["remote_port"],
+            remote_handshake_port=kv_transfer_params['remote_handshake_port'],
             # P workers don't need to receive tp_size from proxy here.
             tp_size=kv_transfer_params.get("tp_size", 1),
         )
@@ -217,9 +219,10 @@ class MoRIIOConnectorScheduler:
         self.engine_id: EngineId = engine_id
         self.side_channel_host = envs.VLLM_NIXL_SIDE_CHANNEL_HOST
         self.side_channel_port = (
-            envs.VLLM_NIXL_SIDE_CHANNEL_PORT +
-            vllm_config.parallel_config.data_parallel_rank *
-            vllm_config.parallel_config.tensor_parallel_size)
+            self.vllm_config.kv_transfer_config.kv_connector_extra_config['handshake_port'], # envs.VLLM_NIXL_SIDE_CHANNEL_PORT +
+            self.vllm_config.parallel_config.data_parallel_rank *
+            self.vllm_config.parallel_config.tensor_parallel_size)
+        # 
         logger.info("Initializing MoRIIO Scheduler %s", engine_id)
 
         # Requests that need to start recv/send.
@@ -403,6 +406,7 @@ class MoRIIOConnectorWorker:
         self.local_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["local_ping_port"]) # P/D节点上报自身信息时使用的port
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
         self.http_port = int(self.kv_transfer_config.kv_connector_extra_config['http_port']) # 用于接收request的port
+        self.handshake_port = int(self.kv_transfer_config.kv_connector_extra_config['handshake_port']) # 用于handshake的本地port,remote的port会在运行中从proxy获取
         # self.local_metadata_port = int(self.kv_transfer_config.kv_connector_extra_config['metadata_port'])
         '''
         ping: local_ip:local_ping_port -> proxy_ip:proxy_ping_port
@@ -442,10 +446,14 @@ class MoRIIOConnectorWorker:
         # NOTE(rob): Within a DP group, each DP rank gets its own
         # base port (which is sent in the KVTransferParams).
         # Each TP rank listens/queries on the base_port + tp_rank.
+        # self.side_channel_port: int = (
+        #     envs.VLLM_NIXL_SIDE_CHANNEL_PORT +
+        #     vllm_config.parallel_config.data_parallel_rank *
+        #     vllm_config.parallel_config.tensor_parallel_size)
         self.side_channel_port: int = (
-            envs.VLLM_NIXL_SIDE_CHANNEL_PORT +
-            vllm_config.parallel_config.data_parallel_rank *
-            vllm_config.parallel_config.tensor_parallel_size)
+            self.handshake_port +
+            self.vllm_config.parallel_config.data_parallel_rank *
+            self.vllm_config.parallel_config.tensor_parallel_size)
 
         # Metadata.
         self.engine_id: EngineId = engine_id
@@ -526,7 +534,8 @@ class MoRIIOConnectorWorker:
         sock.connect(f"tcp://{self.proxy_ip}:{self.proxy_ping_port}")
         while True:
             try:
-                data = {"type":"register","role":"P" if self.is_producer else "D","index":str(index),"request_address":self.request_address}
+                http_request_address = "http://" + self.request_address +"/v1/completions"
+                data = {"type":"register","role":"P" if self.is_producer else "D","index":str(index),"request_address":http_request_address,"handshake_port":self.handshake_port}
                 # print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)},,,,{data = }")
                 
                 sock.send(msgpack.dumps(data))
@@ -585,6 +594,8 @@ class MoRIIOConnectorWorker:
                 if msg != GET_META_MSG:
                     logger.warning(
                         "Connection listener got unexpected message %s", msg)
+                elif msg == GET_META_MSG:
+                    assert 0,"handhsake success!!!!!!!!!!!"
                 sock.send_multipart((identity, b"", encoded_data))
 
     def _nixl_handshake(
@@ -643,7 +654,8 @@ class MoRIIOConnectorWorker:
         fut = self._handshake_futures.get(remote_engine_id)
         if fut is None:
             host = meta.remote_host
-            port = int(meta.remote_port)
+            # port = int(meta.remote_port)
+            port = int(meta.remote_handshake_port)
             tp_size = int(meta.tp_size)
             fut = self._handshake_initiation_executor.submit(self._nixl_handshake, host, port,tp_size, remote_engine_id)
             self._handshake_futures[remote_engine_id] = fut
@@ -665,6 +677,7 @@ class MoRIIOConnectorWorker:
             self._ready_requests.put(entry)
 
         fut.add_done_callback(request_ready)
+        fut.result() # zov: blocking this thread until all tasks finished,thus the "background handshake" is actually "foreground"
 
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         """Register the KV Cache data in nixl."""
@@ -757,6 +770,24 @@ class MoRIIOConnectorWorker:
             logger.debug("Llama 4 block window per layer mapping: %s",
                          self.block_window_per_layer)
             assert len(self.block_window_per_layer) == self.num_layers
+        
+        # P节点在register kvcache的时候就会启动一个监听线程,等待D节点拉取数据
+        metadata = MoRIIOAgentMetadata(
+            engine_id=self.engine_id,
+            agent_metadata=self.nixl_wrapper.get_agent_metadata(),
+            kv_caches_base_addr=self.kv_caches_base_addr[self.engine_id],
+            num_blocks=self.num_blocks,
+            block_len=self.block_len,
+            attn_backend_name=self.backend_name)
+        ready_event = threading.Event()
+        self._nixl_handshake_listener_t = threading.Thread(
+            target=self._nixl_handshake_listener,
+            args=(metadata, ready_event, self.side_channel_port, self.tp_rank),
+            daemon=True,
+            name="nixl_handshake_listener")
+        self._nixl_handshake_listener_t.start()
+        ready_event.wait()  # Wait for listener ZMQ socket to be ready.
+
         '''
         descs = self.nixl_wrapper.get_reg_descs(caches_data, "VRAM")
         logger.debug("Registering descs: %s", caches_data)
@@ -1017,9 +1048,9 @@ class MoRIIOConnectorWorker:
         Start loading by triggering non-blocking nixl_xfer.
         We check for these trnxs to complete in each step().
         """
-        # if self.is_producer:
-        #     logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
-        #     return
+        if self.is_producer:
+            logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+            return
         logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
         for req_id, meta in metadata.reqs_to_recv.items():
             logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = },{meta.local_block_ids = },{meta.remote_block_ids = },{meta.remote_engine_id = }")
@@ -1033,8 +1064,7 @@ class MoRIIOConnectorWorker:
                 # Initiate handshake with remote engine to exchange metadata.
                 with self._handshake_lock:
                     if remote_engine_id not in self._remote_agents:
-                        self._background_nixl_handshake(
-                            req_id, remote_engine_id, meta)
+                        self._background_nixl_handshake(req_id, remote_engine_id, meta)
                         continue
 
             # Handshake already completed, start async read xfer.

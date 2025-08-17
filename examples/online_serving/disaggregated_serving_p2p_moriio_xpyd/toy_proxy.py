@@ -41,12 +41,14 @@ def _listen_for_register(hostname, port):
             if data['type'] == "HELLO":
                 pass
             elif data['type'] == "register" and data['role'] == "P":
-                if "http://" + data['request_address']+"/v1/completions" not in prefill_instances:
-                    prefill_instances.append("http://" + data['request_address']+"/v1/completions")
+                if data['request_address'] not in prefill_instances:
+                    # prefill_instances.append(data['request_address'])
+                    prefill_instances.append(data)
 
             elif data["type"] == "register" and data['role'] == "D":
-                if "http://" + data['request_address']+"/v1/completions" not in decode_instances:
-                    decode_instances.append("http://" + data['request_address']+"/v1/completions")
+                if data['request_address'] not in decode_instances:
+                    # decode_instances.append(data['request_address'])
+                    decode_instances.append(data)
 
             # print(f"zovlog:====> recv {data},remote_addr={remote_addr},{prefill_instances = },{decode_instances = }")
 
@@ -119,13 +121,14 @@ async def handle_request():
     request_id = str(uuid.uuid4())
     prefill_instance_endpoint = prefill_instances[request_nums % len(prefill_instances)]
     decode_instance_endpoint = decode_instances[request_nums % len(decode_instances)]
-    response_json = await send_request_to_prefill(prefill_instance_endpoint,req_data,request_id)
+    response_json = await send_request_to_prefill(prefill_instance_endpoint['request_address'],req_data,request_id)
     # 现在decode可以获取prefill的所有信息了
-    ip, port = extract_ip_port(prefill_instance_endpoint)
+    ip, port = extract_ip_port(prefill_instance_endpoint['request_address'])
     response_json['kv_transfer_params']["do_remote_decode"] = False
     response_json['kv_transfer_params']["do_remote_prefill"] = True
     response_json['kv_transfer_params']["remote_host"] = ip
-    response_json['kv_transfer_params']["remote_port"] = port
+    response_json['kv_transfer_params']["remote_port"] = port # 似乎没用
+    response_json['kv_transfer_params']["remote_handshake_port"] = prefill_instance_endpoint['handshake_port']
 
     req_data['max_tokens'] -= 1
     req_data['prompt'] = response_json['choices'][0]['text']
@@ -135,9 +138,10 @@ async def handle_request():
         "remote_engine_id": response_json['kv_transfer_params']["remote_engine_id"],
         "remote_block_ids": response_json['kv_transfer_params']["remote_block_ids"],
         "remote_host": response_json['kv_transfer_params']["remote_host"],
-        "remote_port": response_json['kv_transfer_params']["remote_port"]
+        "remote_port": response_json['kv_transfer_params']["remote_port"],
+        "remote_handshake_port":response_json['kv_transfer_params']["remote_handshake_port"]
     }
-    generator = send_request_to_decode(decode_instance_endpoint,req_data,request_id)
+    generator = send_request_to_decode(decode_instance_endpoint['request_address'],req_data,request_id)
     response = await make_response(generator)
     request_nums += 1
     return response

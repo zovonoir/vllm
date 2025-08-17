@@ -356,8 +356,9 @@ class MoRIIOConnectorScheduler:
         # Get computed blocks.
         logger.info(f"zovlog:--------------> calculate all full!!!!! {request.num_computed_tokens = },{self.block_size = },{request.num_computed_tokens % self.block_size = }")
         all_full = request.num_computed_tokens % self.block_size == 0
-        computed_block_ids = block_ids if all_full else block_ids[:-1]
-
+        # computed_block_ids = block_ids if all_full else block_ids[:-1]
+        # 不论是否已满,都要传输全部的blockids
+        computed_block_ids = block_ids
         # If prompt < block_size, no xfer so free blocks immediately.
         delay_free_blocks = len(computed_block_ids) > 0
 
@@ -648,6 +649,7 @@ class MoRIIOConnectorWorker:
             self._handshake_futures[remote_engine_id] = fut
 
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):
+                assert 0,"hand shake done!!!!!!!!!!!!!!!!!!!!!"
                 with self._handshake_lock:
                     del self._handshake_futures[eid]
                     try:

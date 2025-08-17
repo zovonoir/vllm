@@ -1,2 +1,2 @@
 # curl -X POST -s http://localhost:8000/v1/completions -H "Content-Type: application/json" -d '{"model": "deepseek-ai/DeepSeek-R1","prompt": "Hi,how are you?","max_tokens": 10,"temperature": 0, "top_k":1}' | awk -F'"' '{print $22}'
-curl -X POST -s http://10.235.192.56:20005/v1/completions -H "Content-Type: application/json" -d '{"model": "deepseek-ai/DeepSeek-R1","prompt": "Hi,how are you?Hi,how are you?Hi,how are you?","max_tokens": 10,"temperature": 0, "top_k":1}' | awk -F'"' '{print $22}'
+curl -X POST -s http://10.235.192.56:10001/v1/completions -H "Content-Type: application/json" -d '{"model": "deepseek-ai/DeepSeek-R1","prompt": "Hi,how are you?Hi,how are you?Hi,how are you?","max_tokens": 10,"temperature": 0, "top_k":1}' | awk -F'"' '{print $22}'

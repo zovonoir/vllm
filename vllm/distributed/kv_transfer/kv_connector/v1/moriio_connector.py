@@ -96,17 +96,6 @@ class MoRIIOConnectorMetadata(KVConnectorMetadata):
         self.reqs_to_recv: dict[ReqId, ReqMeta] = {}
         self.reqs_to_send: dict[ReqId, float] = {}
 
-    def __str__(self):
-        return_str = ""
-        for req_id,req_meta in self.reqs_to_recv.items():
-            return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
-        return_str = f"MoRIIOConnectorMetadata:reqs_to_recv:{return_str},"
-
-        for req_id,req_meta in self.reqs_to_send.items():
-            return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
-        return_str = f"MoRIIOConnectorMetadata:reqs_to_send:{return_str},"
-        return return_str
-    
     def __repr__(self):
         return_str = ""
         for req_id,req_meta in self.reqs_to_recv.items():
@@ -114,7 +103,7 @@ class MoRIIOConnectorMetadata(KVConnectorMetadata):
         return_str = f"MoRIIOConnectorMetadata:reqs_to_recv:{return_str},"
 
         for req_id,req_meta in self.reqs_to_send.items():
-            return_str += f"{req_id = },{req_meta.local_block_ids = },{req_meta.remote_block_ids = },{req_meta.remote_host = },{req_meta.remote_port = },{req_meta.remote_engine_id = },{req_meta.tp_size = }"
+            return_str += f"{req_id = },{req_meta = }"
         return_str = f"MoRIIOConnectorMetadata:reqs_to_send:{return_str},"
         return return_str
     

@@ -48,7 +48,7 @@ def _listen_for_register(hostname, port):
                 if "http://" + data['request_address']+"/v1/completions" not in decode_instances:
                     decode_instances.append("http://" + data['request_address']+"/v1/completions")
 
-            print(f"zovlog:====> recv {data},remote_addr={remote_addr},{prefill_instances = },{decode_instances = }")
+            # print(f"zovlog:====> recv {data},remote_addr={remote_addr},{prefill_instances = },{decode_instances = }")
 
 def start_service_discovery(hostname, port):
     if not hostname:

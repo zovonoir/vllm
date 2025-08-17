@@ -632,7 +632,7 @@ class MoRIIOConnectorWorker:
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",
                          setup_agent_time - got_metadata_time)
-
+        logger.info(f"zovlog:=============> handshake successful!!!!!!!!")
         # Remote rank -> agent name.
         return {p_remote_rank: remote_agent_name}
 
@@ -641,9 +641,10 @@ class MoRIIOConnectorWorker:
         # Do MoRIIO handshake in background and add to _ready_requests when done.
         fut = self._handshake_futures.get(remote_engine_id)
         if fut is None:
-            fut = self._handshake_initiation_executor.submit(
-                self._nixl_handshake, meta.remote_host, meta.remote_port,
-                meta.tp_size, remote_engine_id)
+            host = meta.remote_host
+            port = int(meta.remote_port)
+            tp_size = int(meta.tp_size)
+            fut = self._handshake_initiation_executor.submit(self._nixl_handshake, host, port,tp_size, remote_engine_id)
             self._handshake_futures[remote_engine_id] = fut
 
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):

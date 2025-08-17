@@ -192,7 +192,7 @@ class MoRIIOConnector(KVConnectorBase_V1):
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         assert self.connector_worker is not None
         self.connector_worker.register_kv_caches(kv_caches)
-
+        
     def get_finished(self,
                      finished_req_ids: set[str]) -> tuple[set[str], set[str]]:
         """Get the finished recving and sending requests."""
@@ -278,7 +278,6 @@ class MoRIIOConnectorScheduler:
 
         # No remote prefill for this request.
         return 0, False
-
 
     def update_state_after_alloc(self, request: "Request",
                                  blocks: "KVCacheBlocks",

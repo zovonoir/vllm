@@ -365,6 +365,7 @@ class MoRIIOConnectorScheduler:
             return False, None
 
         # Get computed blocks.
+        logger.info(f"zovlog:--------------> calculate all full!!!!! {request.num_computed_tokens = },{self.block_size = },{request.num_computed_tokens % self.block_size = }")
         all_full = request.num_computed_tokens % self.block_size == 0
         computed_block_ids = block_ids if all_full else block_ids[:-1]
 

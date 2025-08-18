@@ -695,7 +695,7 @@ class MoRIIOConnectorWorker:
             logger.info(f"zovlog:=======> prepare send msg to P INSTAZNCE")
             sock.send(GET_META_MSG)
             logger.info(f"zovlog:=======> send finished,prepare recvive")
-            metadata_bytes = sock.recv()
+            identity, _, metadata_bytes = sock.recv_multipart()
             logger.info(f"received ,eta data bytes = {metadata_bytes}")
             decoder = msgspec.msgpack.Decoder(MoRIIOAgentMetadata)
             metadata = decoder.decode(metadata_bytes)

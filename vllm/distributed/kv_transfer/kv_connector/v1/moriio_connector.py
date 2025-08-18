@@ -1152,7 +1152,7 @@ class MoRIIOConnectorWorker:
 
         # Start transfers for requests whose handshakes have now finished.
         while not self._ready_requests.empty():
-            assert 0,f"start laod kv cache!!!!!!!!!!{self.is_producer = },{self.local_kv_cache_metadata = }"
+            # assert 0,f"start laod kv cache!!!!!!!!!!{self.is_producer = },{self.local_kv_cache_metadata = }"
             self._read_blocks_for_req(*self._ready_requests.get_nowait())
 
         # Add to requests that are waiting to be read and track expiration.
@@ -1169,9 +1169,12 @@ class MoRIIOConnectorWorker:
             remote_block_ids=meta.remote_block_ids,
         )
 
-    def _read_blocks(self, local_block_ids: list[int],
-                     remote_block_ids: list[int], dst_engine_id: str,
+    def _read_blocks(self, 
+                     local_block_ids: list[int],
+                     remote_block_ids: list[int], 
+                     dst_engine_id: str,
                      request_id: str):
+        logger.info(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).
         # after we detect the txn is complete (which means we cannot make the
@@ -1218,15 +1221,12 @@ class MoRIIOConnectorWorker:
         remote_block_descs_ids: list[int] = []
         if not self.block_window_per_layer:
             # Default case: assume global attention
-            remote_block_descs_ids = self._get_block_descs_ids(
-                dst_engine_id, remote_block_ids)
-            local_block_descs_ids = self._get_block_descs_ids(
-                self.engine_id, local_block_ids)
+            remote_block_descs_ids = self._get_block_descs_ids(dst_engine_id, remote_block_ids)
+            local_block_descs_ids = self._get_block_descs_ids(self.engine_id, local_block_ids)
         else:
             # TODO(mgoin): remove this once we have hybrid memory allocator
             # Optimization for models with local attention (Llama 4)
-            for layer_idx, block_window in enumerate(
-                    self.block_window_per_layer):
+            for layer_idx, block_window in enumerate(self.block_window_per_layer):
                 # For each layer:
                 if block_window is None:
                     # If not chunked, we just use the
@@ -1239,10 +1239,8 @@ class MoRIIOConnectorWorker:
                     layer_remote_block_ids = remote_block_ids[-block_window:]
 
                 # Get descs ids for the layer.
-                layer_local_desc_ids = self._get_block_descs_ids(
-                    self.engine_id, layer_local_block_ids, layer_idx)
-                layer_remote_desc_ids = self._get_block_descs_ids(
-                    dst_engine_id, layer_remote_block_ids, layer_idx)
+                layer_local_desc_ids = self._get_block_descs_ids(self.engine_id, layer_local_block_ids, layer_idx)
+                layer_remote_desc_ids = self._get_block_descs_ids(dst_engine_id, layer_remote_block_ids, layer_idx)
 
                 local_block_descs_ids.extend(layer_local_desc_ids)
                 remote_block_descs_ids.extend(layer_remote_desc_ids)

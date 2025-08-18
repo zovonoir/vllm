@@ -813,10 +813,10 @@ class MoRIIOConnectorWorker:
         # 对每一个block ,都要以基址+长度注册一个protection domain
         # 由于_nixl_handshake_listener中无法访问到这些信息
         # 因此我只能在这里注册内存地址
-            logger.info(f"zovlog:=============> prepare register local kv cache tensor for local mori io engine,{len(cache_list) = }")
+            
             # Normalize to always be a list of caches
-            cache_list = [cache_or_caches] if use_mla or self._use_flashinfer \
-                else cache_or_caches
+            cache_list = [cache_or_caches] if use_mla or self._use_flashinfer else cache_or_caches
+            logger.info(f"zovlog:=============> prepare register local kv cache tensor for local mori io engine,{len(cache_list) = }")
             for cache in cache_list:
                 moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache).pack() # register one block
                 self.local_kv_cache_metadata.append(moriio_mem_metadata)

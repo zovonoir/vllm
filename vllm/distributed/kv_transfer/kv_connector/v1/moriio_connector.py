@@ -750,7 +750,7 @@ class MoRIIOConnectorWorker:
 
             fut.add_done_callback(done_callback)
             self._handshake_futures[remote_engine_id] = fut
-
+ 
         # TODO: handle failure state of future in the
         # callback, we want to fail the request in this case.
         def request_ready(_f: Future[Any], entry=(req_id, meta)):

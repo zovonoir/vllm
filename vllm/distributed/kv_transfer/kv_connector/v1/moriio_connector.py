@@ -655,6 +655,7 @@ class MoRIIOConnectorWorker:
                     # P instance send engine desc?
                     # 既然req数据中能够包含engine id,那么同样可以不包含P节点自身的desc,直接写入即可
                     # 但是现在暂时采用发送的方式
+                    logger.info(f"zovlog:=======> P instance handshake msg received!!!!!!!")
                     sock.send_multipart((identity, b"", encoded_data)) # send local mori io engine meta data
 
                     # now we send tensor meta data for each block
@@ -691,7 +692,9 @@ class MoRIIOConnectorWorker:
 
         # Send query for the request.
         with zmq_ctx(zmq.DEALER, path) as sock:
+            logger.info(f"zovlog:=======> prepare send msg to P INSTAZNCE")
             sock.send(GET_META_MSG)
+            logger.info(f"zovlog:=======> send finished,prepare recvive")
             metadata_bytes = sock.recv()
             logger.info(f"received ,eta data bytes = {metadata_bytes}")
             decoder = msgspec.msgpack.Decoder(MoRIIOAgentMetadata)

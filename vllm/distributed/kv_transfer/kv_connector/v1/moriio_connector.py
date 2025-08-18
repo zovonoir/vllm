@@ -89,6 +89,7 @@ class MoRIIOWrapper():
     def register_remote_engine(self,remote_packed_engine_metadata):
         consumer_engine_metadata = EngineDesc.unpack(remote_packed_engine_metadata)
         self.moriio_engine.register_remote_engine(consumer_engine_metadata)
+        return consumer_engine_metadata.key # str,engine name
     
     def register_local_tensor(self,tensor:torch.Tensor):
         try:
@@ -113,11 +114,11 @@ class MoRIIOWrapper():
         self.transfer_status.append(transfer_status)
 
     def waiting_for_transfer_complete(self):
-        for status in self.transfer_status:
+        while self.transfer_status:
+            status = self.transfer_status.pop(0)
             while status.Code() == StatusCode.INIT:
                 pass
-        
-
+                
 
 class MoRIIOAgentMetadata(
         msgspec.Struct,
@@ -193,7 +194,7 @@ class MoRIIOConnector(KVConnectorBase_V1):
             self.connector_scheduler = None
             self.connector_worker = MoRIIOConnectorWorker(
                 vllm_config, self.engine_id)
-        logger.info("Initialized MoRIIO Connector")
+        logger.info(f"Initialized MoRIIO Connector {self.engine_id = }")
 
     ############################################################
     # Scheduler Side Methods
@@ -495,6 +496,7 @@ class MoRIIOConnectorWorker:
         self.nixl_wrapper = MoRIIOWrapper()
         self.nixl_wrapper.set_moriio_engine(self.moriio_engine)
         self.nixl_wrapper.set_backend_type(BackendType.RDMA)
+        self.local_kv_cache_metadata = []
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
@@ -627,7 +629,7 @@ class MoRIIOConnectorWorker:
     @staticmethod
     def _nixl_handshake_listener(metadata: MoRIIOAgentMetadata,
                                  ready_event: threading.Event, base_port: int,
-                                 tp_rank: int):
+                                 tp_rank: int,local_kv_cache_metadata):
         """Background thread for getting new MoRIIO handshakes."""
         # NOTE(rob): this is a simple implementation. We will move
         # to a better approach via HTTP endpoint soon.
@@ -647,12 +649,21 @@ class MoRIIOConnectorWorker:
             while True:
                 identity, _, msg = sock.recv_multipart()
                 if msg != GET_META_MSG:
-                    assert 0,"handhsake success!!!!!!!!!!!111111111"
-                    logger.warning(
-                        "Connection listener got unexpected message %s", msg)
+                    logger.warning("Connection listener got unexpected message %s", msg)
+                    assert 0,"handhsake failed!!!!!!!!!!"
                 elif msg == GET_META_MSG:
-                    assert 0,"handhsake success!!!!!!!!!!!"
-                sock.send_multipart((identity, b"", encoded_data))
+                    # P instance send engine desc?
+                    # 既然req数据中能够包含engine id,那么同样可以不包含P节点自身的desc,直接写入即可
+                    # 但是现在暂时采用发送的方式
+                    sock.send_multipart((identity, b"", encoded_data)) # send local mori io engine meta data
+
+                    # now we send tensor meta data for each block
+                    for metadata in local_kv_cache_metadata:
+                        sock.send_multipart((identity, b"", metadata))
+                    sock.send_multipart((identity, b"", "OVER"))
+                else:
+                    pass
+
 
     def _nixl_handshake(
         self,
@@ -679,7 +690,7 @@ class MoRIIOConnectorWorker:
                      p_remote_rank)
 
         # Send query for the request.
-        with zmq_ctx(zmq.REQ, path) as sock:
+        with zmq_ctx(zmq.DEALER, path) as sock:
             sock.send(GET_META_MSG)
             metadata_bytes = sock.recv()
             decoder = msgspec.msgpack.Decoder(MoRIIOAgentMetadata)
@@ -695,12 +706,17 @@ class MoRIIOConnectorWorker:
                                    f"received {metadata.engine_id}.")
 
             # Register Remote agent.
-            remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,
-                                                      remote_tp_size)
+            # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
+            remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
+            assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
+            while True:
+                identity, _, mem_metadata = sock.recv_multipart()
+                if mem_metadata == "OVER":
+                    break
+                self.local_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
             setup_agent_time = time.perf_counter()
-            logger.debug("MoRIIO handshake: add agent took: %s",
-                         setup_agent_time - got_metadata_time)
-        logger.info(f"zovlog:=============> handshake successful!!!!!!!!")
+            logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
+            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = }")
         # Remote rank -> agent name.
         return {p_remote_rank: remote_agent_name}
 
@@ -733,7 +749,7 @@ class MoRIIOConnectorWorker:
             self._ready_requests.put(entry)
 
         fut.add_done_callback(request_ready)
-        fut.result() # zov: blocking this thread until all tasks finished,thus the "background handshake" is actually "foreground"
+        # fut.result() # zov: blocking this thread until all tasks finished,thus the "background handshake" is actually "foreground"
 
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         """Register the KV Cache data in nixl."""
@@ -794,15 +810,23 @@ class MoRIIOConnectorWorker:
         # Conversely for FlashInfer, K and V are transferred in the same tensor
         # to better exploit the memory layout (ie num_blocks is the first dim).
         for cache_or_caches in kv_caches.values():
+        # 对每一个block ,都要以基址+长度注册一个protection domain
+        # 由于_nixl_handshake_listener中无法访问到这些信息
+        # 因此我只能在这里注册内存地址
+            logger.info(f"zovlog:=============> prepare register local kv cache tensor for local mori io engine,{len(cache_list) = }")
             # Normalize to always be a list of caches
             cache_list = [cache_or_caches] if use_mla or self._use_flashinfer \
                 else cache_or_caches
             for cache in cache_list:
+                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache).pack() # register one block
+                self.local_kv_cache_metadata.append(moriio_mem_metadata)
                 base_addr = cache.data_ptr()
                 region_len = self.num_blocks * self.block_len
                 caches_data.append(
                     (base_addr, region_len, cache.device.index, ""))
                 kv_caches_base_addr.append(base_addr)
+
+                
         self.kv_caches_base_addr[self.engine_id] = kv_caches_base_addr
         self.num_regions = len(caches_data)
         self.num_layers = len(self.kv_caches.keys())
@@ -838,7 +862,7 @@ class MoRIIOConnectorWorker:
         ready_event = threading.Event()
         self._nixl_handshake_listener_t = threading.Thread(
             target=self._nixl_handshake_listener,
-            args=(metadata, ready_event, self.side_channel_port, self.tp_rank),
+            args=(metadata, ready_event, self.side_channel_port, self.tp_rank,self.local_kv_cache_metadata),
             daemon=True,
             name="nixl_handshake_listener")
         self._nixl_handshake_listener_t.start()
@@ -1128,6 +1152,7 @@ class MoRIIOConnectorWorker:
 
         # Start transfers for requests whose handshakes have now finished.
         while not self._ready_requests.empty():
+            assert 0,f"start laod kv cache!!!!!!!!!!{self.is_producer = },{self.local_kv_cache_metadata = }"
             self._read_blocks_for_req(*self._ready_requests.get_nowait())
 
         # Add to requests that are waiting to be read and track expiration.

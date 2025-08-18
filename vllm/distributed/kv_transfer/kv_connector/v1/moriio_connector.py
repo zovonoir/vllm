@@ -66,6 +66,17 @@ except ImportError:
     logger.error("MoRIIO is not available")
     MoRIIO_enabled = False
 
+class MoRIIOWrapper():
+    def __init__(self):
+        pass
+    def get_agent_metadata(self):
+        return None
+        # pass
+    def read_remote_data(self):
+        return None
+        # pass
+    
+
 
 class MoRIIOAgentMetadata(
         msgspec.Struct,
@@ -222,8 +233,7 @@ class MoRIIOConnectorScheduler:
             self.vllm_config.kv_transfer_config.kv_connector_extra_config['handshake_port'], # envs.VLLM_NIXL_SIDE_CHANNEL_PORT +
             self.vllm_config.parallel_config.data_parallel_rank *
             self.vllm_config.parallel_config.tensor_parallel_size)
-        # 
-        logger.info("Initializing MoRIIO Scheduler %s", engine_id)
+        logger.info(f"zovlog::==========> Initializing MoRIIO Scheduler {engine_id = },{self.side_channel_port = }")
 
         # Requests that need to start recv/send.
         # New requests are added by update_state_after_alloc in
@@ -439,6 +449,7 @@ class MoRIIOConnectorWorker:
         logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
+        self.nixl_wrapper = MoRIIOWrapper()
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
@@ -452,8 +463,7 @@ class MoRIIOConnectorWorker:
         #     vllm_config.parallel_config.tensor_parallel_size)
         self.side_channel_port: int = (
             self.handshake_port +
-            self.vllm_config.parallel_config.data_parallel_rank *
-            self.vllm_config.parallel_config.tensor_parallel_size)
+            self.vllm_config.parallel_config.data_parallel_rank * self.vllm_config.parallel_config.tensor_parallel_size)
 
         # Metadata.
         self.engine_id: EngineId = engine_id

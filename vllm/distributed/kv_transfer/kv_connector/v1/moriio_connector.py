@@ -594,7 +594,7 @@ class MoRIIOConnectorWorker:
                      str(size_in_bytes))
 
         # Listen for new requests for metadata.
-        host = "10.235.192.56" # envs.VLLM_NIXL_SIDE_CHANNEL_HOST
+        host = "*" # envs.VLLM_NIXL_SIDE_CHANNEL_HOST
         path = make_zmq_path("tcp", host, base_port + tp_rank)
         logger.info(f"zovlog:======> Starting listening on path: {path}")
         with zmq_ctx(zmq.ROUTER, path) as sock:

@@ -46,6 +46,7 @@ Transfer = tuple[int, float]  # (xfer_handle, start_time)
 EngineId = str
 ReqId = str
 GET_META_MSG = b"get_meta_msg"
+OVER = b"OVER"
 
 logger = init_logger(__name__)
 
@@ -661,7 +662,8 @@ class MoRIIOConnectorWorker:
                     # now we send tensor meta data for each block
                     for metadata in local_kv_cache_metadata:
                         sock.send_multipart((identity, b"", metadata))
-                    sock.send_multipart((identity, b"", "OVER"))
+                    sock.send_multipart((identity, b"", OVER))
+                    logger.info(f"zovlog:=====> P all sent..............")
                 else:
                     pass
 
@@ -684,7 +686,7 @@ class MoRIIOConnectorWorker:
         # Handshake only with the remote TP rank that current local rank will
         # pull from. With homogeneous TP it happens to be the same rank_i.
         logger.info(f"zovlog:--------------------> call _nixl_handshake {self.engine_id = },{self._tp_size = },{remote_tp_size = },{self.tp_rank = },{host = },{port = },")
-        tp_ratio = self._tp_size[self.engine_id] // remote_tp_size
+        tp_ratio = self._tp_size[self.engine_id] // remote_tp_size # _tp_size根据engine id 查询这个engine 的tp大小
         p_remote_rank = self.tp_rank // tp_ratio
         path = make_zmq_path("tcp", host, port + p_remote_rank)
         logger.info("Querying metadata on path: %s at remote rank %s", path,
@@ -715,7 +717,7 @@ class MoRIIOConnectorWorker:
             assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
             while True:
                 identity, _, mem_metadata = sock.recv_multipart()
-                if mem_metadata == "OVER":
+                if mem_metadata == OVER:
                     break
                 self.local_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
             setup_agent_time = time.perf_counter()
@@ -740,7 +742,7 @@ class MoRIIOConnectorWorker:
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):
                 # import time
                 # time.sleep(1)
-                assert 0,"hand shake done!!!!!!!!!!!!!!!!!!!!!"
+                # assert 0,"hand shake done!!!!!!!!!!!!!!!!!!!!!"
                 with self._handshake_lock:
                     del self._handshake_futures[eid]
                     try:

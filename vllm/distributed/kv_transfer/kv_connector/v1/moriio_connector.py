@@ -594,7 +594,7 @@ class MoRIIOConnectorWorker:
                      str(size_in_bytes))
 
         # Listen for new requests for metadata.
-        host = envs.VLLM_NIXL_SIDE_CHANNEL_HOST
+        host = "10.235.192.56" # envs.VLLM_NIXL_SIDE_CHANNEL_HOST
         path = make_zmq_path("tcp", host, base_port + tp_rank)
         logger.info(f"zovlog:======> Starting listening on path: {path}")
         with zmq_ctx(zmq.ROUTER, path) as sock:
@@ -602,6 +602,7 @@ class MoRIIOConnectorWorker:
             while True:
                 identity, _, msg = sock.recv_multipart()
                 if msg != GET_META_MSG:
+                    assert 0,"handhsake success!!!!!!!!!!!111111111"
                     logger.warning(
                         "Connection listener got unexpected message %s", msg)
                 elif msg == GET_META_MSG:

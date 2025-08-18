@@ -818,7 +818,7 @@ class MoRIIOConnectorWorker:
             cache_list = [cache_or_caches] if use_mla or self._use_flashinfer else cache_or_caches
             logger.info(f"zovlog:=============> prepare register local kv cache tensor for local mori io engine,{len(cache_list) = }")
             for cache in cache_list:
-                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache).pack() # register one block
+                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) # register one block
                 self.local_kv_cache_metadata.append(moriio_mem_metadata)
                 base_addr = cache.data_ptr()
                 region_len = self.num_blocks * self.block_len

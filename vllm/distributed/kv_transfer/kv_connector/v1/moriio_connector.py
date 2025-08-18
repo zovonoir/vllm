@@ -734,8 +734,9 @@ class MoRIIOConnectorWorker:
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
             logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = }")
-            assert 0,"zovlog:=============> handshake successful!!!!!!!!"
+            # assert 0,"zovlog:=============> handshake successful!!!!!!!!"
         # Remote rank -> agent name.
+        logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
         return {p_remote_rank: remote_agent_name}
 
     def _background_nixl_handshake(self, req_id: str,

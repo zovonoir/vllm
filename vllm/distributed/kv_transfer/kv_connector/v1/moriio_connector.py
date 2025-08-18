@@ -718,6 +718,7 @@ class MoRIIOConnectorWorker:
             # Register Remote agent.
             # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
+            remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             # assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
             if len(self.local_kv_cache_metadata) > 0:
                 logger.warning(f"zovlog:=======> {len(self.local_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
@@ -1209,8 +1210,7 @@ class MoRIIOConnectorWorker:
 
         # Number of D TP workers that will read from dst P. Propagate tp_ratio
         # on notification so that dst worker can wait before freeing blocks.
-        tp_ratio = self._tp_size[
-            self.engine_id] // self._tp_size[dst_engine_id]
+        tp_ratio = self._tp_size[self.engine_id] // self._tp_size[dst_engine_id]
         notif_id = f"{request_id}:{tp_ratio}".encode()
 
         # Full prefix cache hit: do not need to read remote blocks,

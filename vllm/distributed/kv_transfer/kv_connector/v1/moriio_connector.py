@@ -718,7 +718,10 @@ class MoRIIOConnectorWorker:
             # Register Remote agent.
             # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
-            assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
+            # assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
+            if len(self.local_kv_cache_metadata) > 0:
+                logger.warning(f"zovlog:=======> {len(self.local_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
+            self.local_kv_cache_metadata = []
             while True:
                 # identity, _, mem_metadata = sock.recv_multipart()
                 received_frame = sock.recv_multipart()

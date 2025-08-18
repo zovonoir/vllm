@@ -717,6 +717,7 @@ class MoRIIOConnectorWorker:
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
             logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = }")
+            assert 0,"zovlog:=============> handshake successful!!!!!!!!"
         # Remote rank -> agent name.
         return {p_remote_rank: remote_agent_name}
 
@@ -730,9 +731,11 @@ class MoRIIOConnectorWorker:
             port = int(meta.remote_handshake_port)
             tp_size = int(meta.tp_size)
             fut = self._handshake_initiation_executor.submit(self._nixl_handshake, host, port,tp_size, remote_engine_id)
-            self._handshake_futures[remote_engine_id] = fut
+            
 
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):
+                import time
+                time.sleep(1)
                 assert 0,"hand shake done!!!!!!!!!!!!!!!!!!!!!"
                 with self._handshake_lock:
                     del self._handshake_futures[eid]
@@ -742,6 +745,7 @@ class MoRIIOConnectorWorker:
                         logger.exception("Handshake with %s failed", eid)
 
             fut.add_done_callback(done_callback)
+            self._handshake_futures[remote_engine_id] = fut
 
         # TODO: handle failure state of future in the
         # callback, we want to fail the request in this case.

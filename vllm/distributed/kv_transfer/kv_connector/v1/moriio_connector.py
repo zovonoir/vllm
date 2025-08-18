@@ -1152,7 +1152,7 @@ class MoRIIOConnectorWorker:
 
         # Start transfers for requests whose handshakes have now finished.
         while not self._ready_requests.empty():
-            assert 0,f"start laod kv cache!!!!!!!!!!{self.is_producer = },{self.local_kv_cache_metadata = }"
+            # assert 0,f"start laod kv cache!!!!!!!!!!{self.is_producer = },{self.local_kv_cache_metadata = }"
             self._read_blocks_for_req(*self._ready_requests.get_nowait())
 
         # Add to requests that are waiting to be read and track expiration.

@@ -67,15 +67,56 @@ except ImportError:
     MoRIIO_enabled = False
 
 class MoRIIOWrapper():
-    def __init__(self):
-        pass
+    def __init__(self,moriio_engine = None):
+        self.moriio_engine = moriio_engine
+        self.remote_memory_metadata = None
+        self.local_memory_registered = False
+        self.local_memory_metadata = None
+        self.transfer_status = []
+
+    def set_moriio_engine(self,moriio_engine):
+        assert moriio_engine is not None,"You Cannot pass None engine to MoRIIOWrapper!"
+        self.moriio_engine = moriio_engine
+
+    def set_backend_type(self,backend_type):
+        self.moriio_engine.create_backend(backend_type)
+
     def get_agent_metadata(self):
-        return None
-        # pass
-    def read_remote_data(self):
-        return None
-        # pass
+        engine_metadata = self.moriio_engine.get_engine_desc()
+        engine_metadata_packed = engine_metadata.pack()
+        return engine_metadata_packed
     
+    def register_remote_engine(self,remote_packed_engine_metadata):
+        consumer_engine_metadata = EngineDesc.unpack(remote_packed_engine_metadata)
+        self.moriio_engine.register_remote_engine(consumer_engine_metadata)
+    
+    def register_local_tensor(self,tensor:torch.Tensor):
+        try:
+            self.local_memory_metadata = self.moriio_engine.register_torch_tensor(tensor)
+            local_memory_metadata_packed = self.local_memory_metadata.pack()
+        except Exception as e:
+            logger.error(f"MoRIIO register local memory failed! reason = {e}")
+        self.local_memory_registered = True
+        return local_memory_metadata_packed
+    
+    def set_remote_memory_metadata(self,pakced_memory_metadata):
+        self.remote_memory_metadata = MemoryDesc.unpack(pakced_memory_metadata)
+
+    def read_remote_data(self,transfer_size_byte,local_offset = 0,remote_offset = 0):
+        assert self.remote_memory_metadata is not None,"You have not register remote memory data!"
+        assert self.local_memory_registered,"You have not register local memory data!"
+        transfer_status = self.moriio_engine.read(
+            self.local_memory_metadata, local_offset, 
+            self.remote_memory_metadata, remote_offset, 
+            transfer_size_byte,
+            self.moriio_engine.allocate_transfer_uid())
+        self.transfer_status.append(transfer_status)
+
+    def waiting_for_transfer_complete(self):
+        for status in self.transfer_status:
+            while status.Code() == StatusCode.INIT:
+                pass
+        
 
 
 class MoRIIOAgentMetadata(
@@ -429,7 +470,7 @@ class MoRIIOConnectorWorker:
         self.request_address = f"{self.local_ip}:{self.http_port}"
         self.ping_address = f"{self.local_ip}:{self.local_ping_port}"
 
-        self.mori_engine = None
+        self.moriio_engine = None
         self._handle_request_thread = None
         self._ping_thread = None
         if not self.is_producer:
@@ -438,18 +479,22 @@ class MoRIIOConnectorWorker:
             self.metadata_socket.bind(f"tcp://{self.metadata_address}")
             self.poller.register(self.metadata_socket, zmq.POLLIN)
 
-            self.mori_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
+            self.moriio_engine = IOEngine("consumer",IOEngineConfig(self.local_ip,self.local_kv_port))
             self._handle_request_thread = threading.Thread(target = self.handle_proxy_request,daemon=True)
             self._handle_request_thread.start()
+        else:
+            self.moriio_engine = IOEngine("producer",IOEngineConfig(self.local_ip,self.local_kv_port))
         if self._rank == 0 and self.proxy_ip != "":
             self._ping_thread = threading.Thread(target=self._ping,args=(self.zmq_context,),daemon=True)
             self._ping_thread.start() # join?
 
-        logger.info(f"Initializing MoRIIO Engine ,engine = {self.mori_engine},role = {'producer' if self.is_producer else 'consumer'}")
+        logger.info(f"Initializing MoRIIO Engine ,engine = {self.moriio_engine},role = {'producer' if self.is_producer else 'consumer'}")
         logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
         # Agent.
         # self.nixl_wrapper = NixlWrapper(str(uuid.uuid4()), None)
         self.nixl_wrapper = MoRIIOWrapper()
+        self.nixl_wrapper.set_moriio_engine(self.moriio_engine)
+        self.nixl_wrapper.set_backend_type(BackendType.RDMA)
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 

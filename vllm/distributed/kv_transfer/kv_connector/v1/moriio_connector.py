@@ -647,9 +647,7 @@ class MoRIIOConnectorWorker:
         with zmq_ctx(zmq.ROUTER, path) as sock:
             ready_event.set()
             while True:
-                # identity, _, msg = sock.recv_multipart()
-                objjj = sock.recv_multipart()
-                assert 0,f"zovlog:::::=====> i received this:{objjj}"
+                identity, msg = sock.recv_multipart()
                 if msg != GET_META_MSG:
                     logger.warning("Connection listener got unexpected message %s", msg)
                     assert 0,"handhsake failed!!!!!!!!!!"

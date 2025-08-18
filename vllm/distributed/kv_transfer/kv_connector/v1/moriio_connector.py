@@ -740,7 +740,7 @@ class MoRIIOConnectorWorker:
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):
                 # import time
                 # time.sleep(1)
-                # assert 0,"hand shake done!!!!!!!!!!!!!!!!!!!!!"
+                assert 0,"hand shake done!!!!!!!!!!!!!!!!!!!!!"
                 with self._handshake_lock:
                     del self._handshake_futures[eid]
                     try:

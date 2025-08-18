@@ -686,13 +686,14 @@ class MoRIIOConnectorWorker:
         tp_ratio = self._tp_size[self.engine_id] // remote_tp_size
         p_remote_rank = self.tp_rank // tp_ratio
         path = make_zmq_path("tcp", host, port + p_remote_rank)
-        logger.debug("Querying metadata on path: %s at remote rank %s", path,
+        logger.info("Querying metadata on path: %s at remote rank %s", path,
                      p_remote_rank)
 
         # Send query for the request.
         with zmq_ctx(zmq.DEALER, path) as sock:
             sock.send(GET_META_MSG)
             metadata_bytes = sock.recv()
+            logger.info(f"received ,eta data bytes = {metadata_bytes}")
             decoder = msgspec.msgpack.Decoder(MoRIIOAgentMetadata)
             metadata = decoder.decode(metadata_bytes)
             got_metadata_time = time.perf_counter()

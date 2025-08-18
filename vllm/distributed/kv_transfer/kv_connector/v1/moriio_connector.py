@@ -698,9 +698,11 @@ class MoRIIOConnectorWorker:
             sock.send(GET_META_MSG)
             logger.info(f"zovlog:=======> send finished,prepare recvive")
             # identity, _, metadata_bytes = sock.recv_multipart()
-            received = sock.recv_multipart()
-            logger.info(f"received ,eta data bytes = {received}")
-            assert 0
+            received_frame = sock.recv_multipart()
+            if len(received_frame) != 2 or received_frame[0] != b"":
+                assert 0,f"unexpected frame! {received_frame = }"
+            # logger.info(f"received ,eta data bytes = {received}")
+            metadata_bytes = received_frame[1]
             decoder = msgspec.msgpack.Decoder(MoRIIOAgentMetadata)
             metadata = decoder.decode(metadata_bytes)
             got_metadata_time = time.perf_counter()
@@ -718,7 +720,11 @@ class MoRIIOConnectorWorker:
             remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
             assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
             while True:
-                identity, _, mem_metadata = sock.recv_multipart()
+                # identity, _, mem_metadata = sock.recv_multipart()
+                received_frame = sock.recv_multipart()
+                if len(received_frame) != 2 or received_frame[0] != b"":
+                    assert 0,f"Unexpected frame! {received_frame = }"
+                mem_metadata = received_frame[1]
                 if mem_metadata == OVER:
                     break
                 self.local_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))

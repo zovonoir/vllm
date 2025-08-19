@@ -511,6 +511,8 @@ class MoRIIOConnectorWorker:
         self.layer_name_to_remote_kv_cache_metadata:dict[str, List[Any]] = dict()
         self.slot_size_bytes = 0
 
+        self.load_kv_flag = False # False 代表从未load过
+
         self.kv_cache_shape = None
         self.block_shape = None
         self.kv_element_size = 0
@@ -796,6 +798,7 @@ class MoRIIOConnectorWorker:
         def request_ready(_f: Future[Any], entry=(req_id, meta)):
             logger.info(f"zovlog:==============> request_ready called")
             self._ready_requests.put(entry)
+            self.load_kv_flag = True 
 
         fut.add_done_callback(request_ready)
         # fut.result() # zov: blocking this thread until all tasks finished,thus the "background handshake" is actually "foreground"
@@ -1235,14 +1238,16 @@ class MoRIIOConnectorWorker:
         logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
         
         while True:
-            if self._ready_requests.empty():
+            if self._ready_requests.empty() and not self.load_kv_flag: # 第一次进入,需要一直等待
                 logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
                 pass
-            else:
+            elif not self._ready_requests.empty() and self.load_kv_flag:
                 logger.info(f"zovlog:==============> {self._ready_requests.empty() = }!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 self._read_blocks_for_req(*self._ready_requests.get_nowait())
-                
                 break
+            else:
+                break
+
         # while not self._ready_requests.empty():
         #     self._read_blocks_for_req(*self._ready_requests.get_nowait())
 

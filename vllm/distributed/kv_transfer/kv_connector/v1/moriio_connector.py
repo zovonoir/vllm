@@ -740,17 +740,17 @@ class MoRIIOConnectorWorker:
             #     if mem_metadata == OVER:
             #         break
             #     self.remote_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
-                logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
-                received_frame = sock.recv_multipart()
-                logger.info(f"zovlog:==========> D instance received. received_frame {received_frame = }")
-                if len(received_frame) != 2 or received_frame[0] != b"":
-                    assert 0,f"Unexpected frame! {received_frame = }"
-                buf = received_frame[1]
-                self.layer_name_to_remote_kv_cache_metadata = pickle.loads(buf)
+            logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
+            received_frame = sock.recv_multipart()
+            logger.info(f"zovlog:==========> D instance received. received_frame {received_frame = }")
+            if len(received_frame) != 2 or received_frame[0] != b"":
+                assert 0,f"Unexpected frame! {received_frame = }"
+            buf = received_frame[1]
+            self.layer_name_to_remote_kv_cache_metadata = pickle.loads(buf)
                 
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
-            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = },{self.remote_kv_cache_metadata = }")
+            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = },{self.remote_kv_cache_metadata = },{self.layer_name_to_remote_kv_cache_metadata = }")
 
         # Remote rank -> agent name.
         logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
@@ -1239,7 +1239,7 @@ class MoRIIOConnectorWorker:
                      request_id: str):
         import time
         time.sleep(10)
-        logger.info(f"zovlog:=============> {self.layer_name_to_local_kv_cache_metadata = },{self.layer_name_to_remote_kv_cache_metadata = }")
+        logger.info(f"zovlog:=============> {self.layer_name_to_remote_kv_cache_metadata = }")
         logger.info(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).

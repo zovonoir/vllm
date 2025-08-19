@@ -1274,6 +1274,7 @@ class MoRIIOConnectorWorker:
                 # logger.info(f"zovlog:===========>{layer_name = },{offset = },{transfer_size_byte = }")
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset,offset)
             self.nixl_wrapper.read_remote_data(327680,0,0)
+            break
             # self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2/128,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         import time

@@ -1236,9 +1236,12 @@ class MoRIIOConnectorWorker:
         
         while True:
             if self._ready_requests.empty():
+                logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
                 pass
             else:
+                logger.info(f"zovlog:==============> {self._ready_requests.empty() = }!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 self._read_blocks_for_req(*self._ready_requests.get_nowait())
+                
                 break
         # while not self._ready_requests.empty():
         #     self._read_blocks_for_req(*self._ready_requests.get_nowait())

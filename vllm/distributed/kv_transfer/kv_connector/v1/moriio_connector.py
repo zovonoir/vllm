@@ -803,6 +803,8 @@ class MoRIIOConnectorWorker:
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         """Register the KV Cache data in nixl."""
         """只会在llmengine初始化的时候调用一次,注册所有已经分配的kvcache"""
+        for _,t in kv_caches.items():
+            t *= 0
         # kv_caches,KEY layer name,VALUE cache tensor,(2,numblocks,blocksize,headnum,headsize)
         _, first_kv_cache = next(iter(kv_caches.items()))
         kv_elem_size = first_kv_cache.element_size()

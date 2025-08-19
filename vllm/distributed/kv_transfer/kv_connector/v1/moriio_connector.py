@@ -282,7 +282,7 @@ class MoRIIOConnectorScheduler:
             self.vllm_config.parallel_config.data_parallel_rank *
             self.vllm_config.parallel_config.tensor_parallel_size)
         logger.info(f"zovlog::==========> Initializing MoRIIO Scheduler {engine_id = },{self.side_channel_port = }")
-        self.gotted = False
+        # self.gotted = False
         # Requests that need to start recv/send.
         # New requests are added by update_state_after_alloc in
         # the scheduler. Used to make metadata passed to Worker.
@@ -310,12 +310,6 @@ class MoRIIOConnectorScheduler:
             * true if the external KV cache tokens will be loaded
               asynchronously (between scheduler steps).
         """
-
-        if not self.gotted and len(request.prompt_token_ids) > 1:
-            self.gotted = True
-            return 6,True
-        else:
-            return 0,False
 
         logger.info(f"zovlog:==============> call get_num_new_matched_tokens,{request.kv_transfer_params = }")
         params = request.kv_transfer_params

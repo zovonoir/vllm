@@ -130,17 +130,22 @@ async def handle_request():
     response_json['kv_transfer_params']["remote_port"] = port # 似乎没用
     response_json['kv_transfer_params']["remote_handshake_port"] = prefill_instance_endpoint['handshake_port']
 
-    req_data['max_tokens'] -= 1
-    req_data['prompt'] = response_json['choices'][0]['text']
-    req_data['kv_transfer_params'] = {
-        "do_remote_decode": False,
-        "do_remote_prefill": True,
-        "remote_engine_id": response_json['kv_transfer_params']["remote_engine_id"],
-        "remote_block_ids": response_json['kv_transfer_params']["remote_block_ids"],
-        "remote_host": response_json['kv_transfer_params']["remote_host"],
-        "remote_port": response_json['kv_transfer_params']["remote_port"],
-        "remote_handshake_port":response_json['kv_transfer_params']["remote_handshake_port"]
-    }
+    # req_data['max_tokens'] -= 1
+    # req_data['prompt'] = response_json['choices'][0]['text']
+    # req_data['kv_transfer_params'] = {
+    #     "do_remote_decode": False,
+    #     "do_remote_prefill": True,
+    #     "remote_engine_id": response_json['kv_transfer_params']["remote_engine_id"],
+    #     "remote_block_ids": response_json['kv_transfer_params']["remote_block_ids"],
+    #     "remote_host": response_json['kv_transfer_params']["remote_host"],
+    #     "remote_port": response_json['kv_transfer_params']["remote_port"],
+    #     "remote_handshake_port":response_json['kv_transfer_params']["remote_handshake_port"]
+    # }
+
+    kv_transfer_params = response_json.get('kv_transfer_params', {})
+    if kv_transfer_params:
+        req_data["kv_transfer_params"] = kv_transfer_params
+
     generator = send_request_to_decode(decode_instance_endpoint['request_address'],req_data,request_id)
     response = await make_response(generator)
     request_nums += 1

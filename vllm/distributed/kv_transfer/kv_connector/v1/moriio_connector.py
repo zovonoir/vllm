@@ -1254,7 +1254,7 @@ class MoRIIOConnectorWorker:
         # 每一层的对应blkid都需要传输
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
         print(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
-        self.kv_caches
+        # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         stride = [blknum*blksize*hn*hs,blksize*hs*hn,hs*hn,hs,1]
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
@@ -1264,12 +1264,13 @@ class MoRIIOConnectorWorker:
                 offset = blkid * stride[0]
                 transfer_size_byte = blksize * hn * hs * self.kv_element_size
                 logger.info(f"zovlog:===========>{layer_name = },{offset = },{transfer_size_byte = }")
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset,offset)
+                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset,offset)
+                self.nixl_wrapper.read_remote_data(self.kv_caches[layername0].nelement() * self.kv_caches[layername0].element_size(),0,0)
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         self.nixl_wrapper.waiting_for_transfer_complete()
         logger.info(f"zovlog:============> all transfer complete!")
         print(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
-        return
+        # return
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).
         # after we detect the txn is complete (which means we cannot make the

@@ -1258,7 +1258,7 @@ class MoRIIOConnectorWorker:
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         stride = [blknum*blksize*hn*hs,blksize*hs*hn,hs*hn,hs,1]
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-            self.kv_caches[layer_name][1] += 1234.567
+            # self.kv_caches[layer_name][1] += 1234.567
             # self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             local_metadata = self.nixl_wrapper.register_local_tensor(self.kv_caches[layer_name])
             local_metadata = MemoryDesc.unpack(local_metadata)

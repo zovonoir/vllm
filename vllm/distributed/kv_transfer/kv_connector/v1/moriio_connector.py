@@ -310,7 +310,7 @@ class MoRIIOConnectorScheduler:
             * true if the external KV cache tokens will be loaded
               asynchronously (between scheduler steps).
         """
-
+        logger.info(f"zovlog:==============> call get_num_new_matched_tokens,{request.kv_transfer_params = }")
         params = request.kv_transfer_params
         logger.debug(
             "NIXLConnector get_num_new_matched_tokens: "

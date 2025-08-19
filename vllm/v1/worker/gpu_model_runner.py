@@ -1744,7 +1744,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             )
 
         self.eplb_step()
-
+        logger.info(f"zovlog:*********************> {input_ids = },{len(self.kv_caches) = },all sum = {[c.sum() for c in self.kv_caches]}")
         return ModelRunnerOutput(
             req_ids=self.input_batch.req_ids,
             req_id_to_index=self.input_batch.req_id_to_index,

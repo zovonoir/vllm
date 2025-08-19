@@ -1262,9 +1262,9 @@ class MoRIIOConnectorWorker:
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for blkid in remote_block_ids:
                 offset = blkid * stride[0]
-                blksize_byte = blksize * self.kv_element_size
-                logger.info(f"zovlog:===========>{layer_name = },{offset = },{blksize_byte = }")
-                self.nixl_wrapper.read_remote_data(blksize_byte,offset,offset)
+                transfer_size_byte = blksize * hn * hs * self.kv_element_size
+                logger.info(f"zovlog:===========>{layer_name = },{offset = },{transfer_size_byte = }")
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset,offset)
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         self.nixl_wrapper.waiting_for_transfer_complete()
         logger.info(f"zovlog:============> all transfer complete!")

@@ -142,6 +142,7 @@ async def handle_request():
     #     "remote_handshake_port":response_json['kv_transfer_params']["remote_handshake_port"]
     # }
 
+    # 这个kvtransfer param里面到底写了什么?
     kv_transfer_params = response_json.get('kv_transfer_params', {})
     if kv_transfer_params:
         req_data["kv_transfer_params"] = kv_transfer_params

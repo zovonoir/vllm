@@ -323,6 +323,9 @@ class MoRIIOConnectorScheduler:
             logger.info(f"zovlog:===============> call get_num_new_matched_tokens,{len(request.prompt_token_ids) = },{self.block_size = },{round_down(len(request.prompt_token_ids), self.block_size) = },{num_computed_tokens = }")
             rounded_num_prompt_tokens = round_down(len(request.prompt_token_ids), self.block_size)
             count = max(rounded_num_prompt_tokens - num_computed_tokens, 0)
+            
+            return 6,True
+        
             if count > 0:
                 return count, True
 

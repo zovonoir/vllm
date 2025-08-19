@@ -740,8 +740,9 @@ class MoRIIOConnectorWorker:
             #     if mem_metadata == OVER:
             #         break
             #     self.remote_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
-
+                logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
                 received_frame = sock.recv_multipart()
+                logger.info(f"zovlog:==========> D instance received. received_frame {received_frame = }")
                 if len(received_frame) != 2 or received_frame[0] != b"":
                     assert 0,f"Unexpected frame! {received_frame = }"
                 buf = received_frame[1]

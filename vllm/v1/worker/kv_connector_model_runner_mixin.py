@@ -78,6 +78,7 @@ class KVConnectorModelRunnerMixin:
     def maybe_get_kv_connector_output(
         scheduler_output: "SchedulerOutput"
     ) -> AbstractContextManager[Optional[KVConnectorOutput]]:
+        logger.info(f"zovlog:============> maybe_get_kv_connector_output,{has_kv_transfer_group() = }")
         return KVConnectorModelRunnerMixin._get_kv_connector_output(
             scheduler_output) if has_kv_transfer_group() else nullcontext()
 

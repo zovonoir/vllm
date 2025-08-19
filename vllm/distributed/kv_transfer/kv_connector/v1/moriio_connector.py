@@ -1255,7 +1255,8 @@ class MoRIIOConnectorWorker:
         # 直接开始传输
         # 每一层的对应blkid都需要传输
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-            print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = }")
+            print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
+            break
         
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
         logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
@@ -1280,7 +1281,8 @@ class MoRIIOConnectorWorker:
         import time
         time.sleep(2)
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-            print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = }")
+            print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
+            break
 
         return
         # NOTE(rob): having the staging blocks be on the READER side is

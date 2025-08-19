@@ -1565,7 +1565,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 skip_cuda_graphs=skip_cuda_graphs,
         ), self.maybe_get_kv_connector_output(
                 scheduler_output) as kv_connector_output:
-            logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = }")
+            logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,1,0,0,0:32] = }")
             model_output = self.model(
                 input_ids=input_ids,
                 positions=positions,
@@ -1743,7 +1743,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             )
 
         self.eplb_step()
-        logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = }")
+        logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,1,0,0,0:32] = }")
         return ModelRunnerOutput(
             req_ids=self.input_batch.req_ids,
             req_id_to_index=self.input_batch.req_id_to_index,

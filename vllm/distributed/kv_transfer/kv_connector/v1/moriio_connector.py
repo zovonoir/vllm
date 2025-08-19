@@ -211,8 +211,7 @@ class MoRIIOConnector(KVConnectorBase_V1):
             self, request: "Request",
             num_computed_tokens: int) -> tuple[int, bool]:
         assert self.connector_scheduler is not None
-        return self.connector_scheduler.get_num_new_matched_tokens(
-            request, num_computed_tokens)
+        return self.connector_scheduler.get_num_new_matched_tokens(request, num_computed_tokens)
 
     def update_state_after_alloc(self, request: "Request",
                                  blocks: "KVCacheBlocks",
@@ -321,8 +320,8 @@ class MoRIIOConnectorScheduler:
         if params is not None and params.get("do_remote_prefill"):
             # Remote prefill: get all prompt blocks from remote.
             assert num_computed_tokens % self.block_size == 0
-            rounded_num_prompt_tokens = round_down(
-                len(request.prompt_token_ids), self.block_size)
+            logger.info(f"zovlog:===============> call get_num_new_matched_tokens,{len(request.prompt_token_ids) = },{self.block_size = },{round_down(len(request.prompt_token_ids), self.block_size) = },{num_computed_tokens = },{max(rounded_num_prompt_tokens - num_computed_tokens, 0) = }")
+            rounded_num_prompt_tokens = round_down(len(request.prompt_token_ids), self.block_size)
             count = max(rounded_num_prompt_tokens - num_computed_tokens, 0)
             if count > 0:
                 return count, True

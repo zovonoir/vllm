@@ -498,6 +498,9 @@ class MoRIIOConnectorWorker:
         self.nixl_wrapper.set_moriio_engine(self.moriio_engine)
         self.nixl_wrapper.set_backend_type(BackendType.RDMA)
         self.local_kv_cache_metadata = []
+        self.local_kv_cache_size = []
+        self.remote_kv_cache_metadata = []
+        self.remote_kv_cache_size = []
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
@@ -719,10 +722,12 @@ class MoRIIOConnectorWorker:
             # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
             remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
-            # assert len(self.local_kv_cache_metadata) == 0,"D instance must have empty kvcache metadata list before handshake!!!!!!!!"
             if len(self.local_kv_cache_metadata) > 0:
                 logger.warning(f"zovlog:=======> {len(self.local_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
-            self.local_kv_cache_metadata = []
+                self.local_kv_cache_metadata = []
+            if len(self.remote_kv_cache_metadata) > 0:
+                logger.warning(f"zovlog:=======> {len(self.remote_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
+                self.remote_kv_cache_metadata = []
             while True:
                 # identity, _, mem_metadata = sock.recv_multipart()
                 received_frame = sock.recv_multipart()
@@ -731,10 +736,10 @@ class MoRIIOConnectorWorker:
                 mem_metadata = received_frame[1]
                 if mem_metadata == OVER:
                     break
-                self.local_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
+                self.remote_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
-            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = }")
+            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = },{self.remote_kv_cache_metadata = }")
             # assert 0,"zovlog:=============> handshake successful!!!!!!!!"
         # Remote rank -> agent name.
         logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
@@ -837,12 +842,13 @@ class MoRIIOConnectorWorker:
         # 由于_nixl_handshake_listener中无法访问到这些信息
         # 因此我只能在这里注册内存地址
             
-            # Normalize to always be a list of caches
             cache_list = [cache_or_caches] if use_mla or self._use_flashinfer else cache_or_caches
             logger.info(f"zovlog:=============> prepare register local kv cache tensor for local mori io engine,{len(cache_list) = },{kv_caches.keys() = }")
             for cache in cache_list:
                 moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) # register one block
                 self.local_kv_cache_metadata.append(moriio_mem_metadata)
+                self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
+                logger.info(f"zovlog::===========> registered:{}")
                 base_addr = cache.data_ptr()
                 region_len = self.num_blocks * self.block_len
                 caches_data.append(

@@ -102,8 +102,11 @@ class MoRIIOWrapper():
         self.local_memory_registered = True
         return local_memory_metadata_packed
     
-    def set_remote_memory_metadata(self,pakced_memory_metadata):
-        self.remote_memory_metadata = MemoryDesc.unpack(pakced_memory_metadata)
+    def set_remote_memory_metadata(self,packed_memory_metadata):
+        self.remote_memory_metadata = MemoryDesc.unpack(packed_memory_metadata)
+
+    def set_local_memory_metadata(self,packed_memory_metadata):
+        self.local_memory_metadata = MemoryDesc.unpack(packed_memory_metadata)
 
     def read_remote_data(self,transfer_size_byte,local_offset = 0,remote_offset = 0):
         assert self.remote_memory_metadata is not None,"You have not register remote memory data!"
@@ -505,6 +508,11 @@ class MoRIIOConnectorWorker:
         self.remote_kv_cache_size = []
         self.layer_name_to_remote_kv_cache_metadata:dict[str, List[Any]] = dict()
         self.slot_size_bytes = 0
+
+        self.kv_cache_shape = None
+        self.block_shape = None
+        self.kv_element_size = 0
+
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
@@ -832,11 +840,14 @@ class MoRIIOConnectorWorker:
         # hybrid attn, etc
         # block size in bytes
         self.block_len = kv_elem_size * math.prod(block_shape)
+        self.kv_cache_shape = first_kv_cache.shape
+        self.block_shape = block_shape
+        self.kv_element_size = kv_elem_size
 
         logger.info(f"Registering KV_Caches: {use_mla=}, {self.num_blocks=}, {block_shape=}, per_layer_kv_cache_shape={first_kv_cache.shape}")
 
         self.dst_num_blocks[self.engine_id] = self.num_blocks
-        self.kv_caches = kv_caches
+        self.kv_caches = kv_caches # layer name to kv cache
         kv_caches_base_addr = []
         caches_data = []
 
@@ -1238,6 +1249,22 @@ class MoRIIOConnectorWorker:
                      dst_engine_id: str,
                      request_id: str):
         logger.info(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
+
+        # 直接开始传输
+        # 每一层的对应blkid都需要传输
+        _,blknum,blksize,hn,hs = self.kv_cache_shape
+        stride = [blknum*blksize*hn*hs,blksize*hs*hn,hs*hn,hs,1]
+        for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
+            self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
+            self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
+            for blkid in remote_block_ids:
+                offset = blkid * stride[0]
+                blksize_byte = blksize * self.kv_element_size
+                self.nixl_wrapper.read_remote_data(blksize_byte,offset,offset)
+        logger.info(f"zovlog:=======> wait for all transfer complete!")
+        self.nixl_wrapper.waiting_for_transfer_complete()
+        logger.info(f"zovlog:============> all transfer complete!")
+        return
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).
         # after we detect the txn is complete (which means we cannot make the

@@ -664,7 +664,7 @@ class NixlConnectorWorker:
                                    remote_engine_id: EngineId, meta: ReqMeta):
         # Do NIXL handshake in background and add to _ready_requests when done.
         fut = self._handshake_futures.get(remote_engine_id)
-        logger.info(f"zovlog:====================> I am in _background_nixl_handshake {fut = }")
+        
         if fut is None:
             fut = self._handshake_initiation_executor.submit(
                 self._nixl_handshake, meta.remote_host, meta.remote_port,
@@ -672,7 +672,7 @@ class NixlConnectorWorker:
             self._handshake_futures[remote_engine_id] = fut
 
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):
-                logger.info(f"zovlog:==============> done_callback called")
+                
                 with self._handshake_lock:
                     del self._handshake_futures[eid]
                     try:
@@ -685,7 +685,6 @@ class NixlConnectorWorker:
         # TODO: handle failure state of future in the
         # callback, we want to fail the request in this case.
         def request_ready(_f: Future[Any], entry=(req_id, meta)):
-            logger.info(f"zovlog:==============> request_ready called")
             self._ready_requests.put(entry)
 
         fut.add_done_callback(request_ready)

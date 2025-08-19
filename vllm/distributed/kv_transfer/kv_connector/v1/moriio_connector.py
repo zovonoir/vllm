@@ -790,7 +790,7 @@ class MoRIIOConnectorWorker:
 
             fut.add_done_callback(done_callback)
             self._handshake_futures[remote_engine_id] = fut
- 
+
         # TODO: handle failure state of future in the
         # callback, we want to fail the request in this case.
         def request_ready(_f: Future[Any], entry=(req_id, meta)):
@@ -1233,8 +1233,15 @@ class MoRIIOConnectorWorker:
             logger.info(f"zovlog:==============> read block finished ")
         # Start transfers for requests whose handshakes have now finished.
         logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
-        while not self._ready_requests.empty():
-            self._read_blocks_for_req(*self._ready_requests.get_nowait())
+        
+        while True:
+            if self._ready_requests.empty():
+                pass
+            else:
+                self._read_blocks_for_req(*self._ready_requests.get_nowait())
+                break
+        # while not self._ready_requests.empty():
+        #     self._read_blocks_for_req(*self._ready_requests.get_nowait())
 
         # Add to requests that are waiting to be read and track expiration.
         self._reqs_to_send.update(metadata.reqs_to_send)

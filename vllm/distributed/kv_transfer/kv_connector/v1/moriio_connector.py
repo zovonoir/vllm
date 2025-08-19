@@ -678,7 +678,7 @@ class MoRIIOConnectorWorker:
                     # for layer_name,metadata in layer_name_to_local_kv_cache_metadata.items():
                     #     sock.send_multipart((identity, b"", metadata))
                     # sock.send_multipart((identity, b"", OVER))
-                    logger.info(f"zovlog:=====> P all sent..............")
+                    logger.info(f"zovlog:=====> P all sent.............. {layer_name_to_local_kv_cache_metadata = }")
                 else:
                     pass
 
@@ -1269,9 +1269,10 @@ class MoRIIOConnectorWorker:
                 # logger.info(f"zovlog:===========>{layer_name = },{offset = },{transfer_size_byte = }")
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset,offset)
                 # self.nixl_wrapper.read_remote_data(self.kv_caches[layername0].nelement() * self.kv_caches[layername0].element_size(),0,0)
-            self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())
+            # self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2/128,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())
         logger.info(f"zovlog:=======> wait for all transfer complete!")
-
+        import time
+        time.sleep(5)
         # logger.info(f"zovlog:============> all transfer complete!")
         print(f"zovlog:============>tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         return

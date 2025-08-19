@@ -1566,8 +1566,6 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         ), self.maybe_get_kv_connector_output(
                 scheduler_output) as kv_connector_output:
             logger.info(f"zovlog:*********************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,0,...].sum().item() = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,2,...].sum().item() = },{self.kv_caches[0][0,3,...].sum().item() = }")
-            import time
-            time.sleep(5)
             model_output = self.model(
                 input_ids=input_ids,
                 positions=positions,

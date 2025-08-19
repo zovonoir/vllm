@@ -781,6 +781,7 @@ class MoRIIOConnectorWorker:
 
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         """Register the KV Cache data in nixl."""
+        """只会在llmengine初始化的时候调用一次,注册所有已经分配的kvcache"""
 
         _, first_kv_cache = next(iter(kv_caches.items()))
         kv_elem_size = first_kv_cache.element_size()
@@ -848,7 +849,7 @@ class MoRIIOConnectorWorker:
                 moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) # register one block
                 self.local_kv_cache_metadata.append(moriio_mem_metadata)
                 self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
-                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.local_kv_cache_metadata[-1] = },{self.block_len = },{self.num_blocks = },{kv_elem_size = },{first_kv_cache = },{block_shape = }")
+                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.local_kv_cache_metadata[-1] = },{self.block_len = },{self.num_blocks = },{kv_elem_size = },{first_kv_cache.shape = },{block_shape = }")
                 base_addr = cache.data_ptr()
                 region_len = self.num_blocks * self.block_len
                 caches_data.append(

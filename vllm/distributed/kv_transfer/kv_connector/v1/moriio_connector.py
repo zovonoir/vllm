@@ -1270,7 +1270,7 @@ class MoRIIOConnectorWorker:
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         # self.nixl_wrapper.waiting_for_transfer_complete()
         logger.info(f"zovlog:============> all transfer complete!")
-        print(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
+        print(f"zovlog:============>tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         return
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).

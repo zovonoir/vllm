@@ -838,6 +838,9 @@ class MoRIIOConnectorWorker:
         # (roughly 8KB vs 5KB).
         # Conversely for FlashInfer, K and V are transferred in the same tensor
         # to better exploit the memory layout (ie num_blocks is the first dim).
+        kv_cache_key_list = kv_caches.keys()
+        kv_cache_shape_list = [c.shape for c in kv_caches.values()]
+        logger.info(f"zovlog:======> {kv_cache_key_list = },{kv_cache_shape_list = }")
         for cache_or_caches in kv_caches.values():
         # 对每一个block ,都要以基址+长度注册一个protection domain
         # 由于_nixl_handshake_listener中无法访问到这些信息

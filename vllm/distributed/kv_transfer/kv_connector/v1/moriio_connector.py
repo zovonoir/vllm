@@ -311,7 +311,7 @@ class MoRIIOConnectorScheduler:
               asynchronously (between scheduler steps).
         """
 
-        if not self.gotted:
+        if not self.gotted and len(request.prompt_token_ids) > 1:
             self.gotted = True
             return 6,True
         else:

@@ -31,7 +31,7 @@ vllm serve /apps/data/models/Qwen3-32B  \
         --port 40005 \
         --trust-remote-code \
         --enforce-eager \
-        --gpu-memory-utilization 0.2 \
+        --gpu-memory-utilization 0.6\
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \
         --kv-transfer-config '{"kv_connector":"MoRIIOConnector","kv_role":"kv_consumer","kv_port":"32987","kv_connector_extra_config":{"proxy_ip":"10.235.192.54","proxy_port":"30001","http_port":"40005","local_ping_port":"32567","proxy_ping_port":"36367","handshake_port":60000}}'

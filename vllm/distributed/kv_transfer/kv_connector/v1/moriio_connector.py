@@ -848,7 +848,7 @@ class MoRIIOConnectorWorker:
                 moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) # register one block
                 self.local_kv_cache_metadata.append(moriio_mem_metadata)
                 self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
-                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.local_kv_cache_metadata[-1] = }")
+                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.local_kv_cache_metadata[-1] = },{self.block_len = },{self.num_blocks = },{kv_elem_size = },{first_kv_cache = },{block_shape = }")
                 base_addr = cache.data_ptr()
                 region_len = self.num_blocks * self.block_len
                 caches_data.append(

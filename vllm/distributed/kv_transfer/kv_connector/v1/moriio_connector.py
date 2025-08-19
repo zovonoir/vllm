@@ -1237,9 +1237,6 @@ class MoRIIOConnectorWorker:
                      remote_block_ids: list[int], 
                      dst_engine_id: str,
                      request_id: str):
-        import time
-        time.sleep(10)
-        logger.info(f"zovlog:=============> {self.layer_name_to_remote_kv_cache_metadata = }")
         logger.info(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).

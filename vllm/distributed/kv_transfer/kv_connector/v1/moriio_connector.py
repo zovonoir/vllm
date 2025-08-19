@@ -1224,12 +1224,15 @@ class MoRIIOConnectorWorker:
                 with self._handshake_lock:
                     if remote_engine_id not in self._remote_agents:
                         self._background_nixl_handshake(req_id, remote_engine_id, meta)
+                        logger.info(f"zovlog:==============> _background_nixl_handshake launched!")
                         continue
-
+                        
             # Handshake already completed, start async read xfer.
+            logger.info(f"zovlog:==============> prepare read block ")
             self._read_blocks_for_req(req_id, meta)
-
+            logger.info(f"zovlog:==============> read block finished ")
         # Start transfers for requests whose handshakes have now finished.
+        logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
         while not self._ready_requests.empty():
             self._read_blocks_for_req(*self._ready_requests.get_nowait())
 

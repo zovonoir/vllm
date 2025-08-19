@@ -832,7 +832,7 @@ class MoRIIOConnectorWorker:
         # block size in bytes
         self.block_len = kv_elem_size * math.prod(block_shape)
 
-        logger.info(f"Registering KV_Caches: {use_mla=}, {self.num_blocks=}, {self.block_shape=}, per_layer_kv_cache_shape={first_kv_cache.shape}")
+        logger.info(f"Registering KV_Caches: {use_mla=}, {self.num_blocks=}, {block_shape=}, per_layer_kv_cache_shape={first_kv_cache.shape}")
 
         self.dst_num_blocks[self.engine_id] = self.num_blocks
         self.kv_caches = kv_caches

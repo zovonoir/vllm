@@ -1205,12 +1205,12 @@ class MoRIIOConnectorWorker:
         We check for these trnxs to complete in each step().
         """
         if self.is_producer:
-            logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+            # logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
             return
         
-        logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
+        # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
         for req_id, meta in metadata.reqs_to_recv.items():
-            logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = },{meta.local_block_ids = },{meta.remote_block_ids = },{meta.remote_engine_id = }")
+            # logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = },{meta.local_block_ids = },{meta.remote_block_ids = },{meta.remote_engine_id = }")
             remote_engine_id = meta.remote_engine_id
             logger.debug(
                 "start_load_kv for request %s from remote engine %s. "
@@ -1254,8 +1254,11 @@ class MoRIIOConnectorWorker:
 
         # 直接开始传输
         # 每一层的对应blkid都需要传输
+        for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
+            print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = }")
+        
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
-        print(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
+        logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         stride = [blknum*blksize*hn*hs,blksize*hs*hn,hs*hn,hs,1]
@@ -1270,13 +1273,14 @@ class MoRIIOConnectorWorker:
                 # transfer_size_byte = blksize * hn * hs * self.kv_element_size
                 # logger.info(f"zovlog:===========>{layer_name = },{offset = },{transfer_size_byte = }")
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset,offset)
-            self.nixl_wrapper.read_remote_data(self.kv_caches[layername0].nelement() * self.kv_caches[layername0].element_size(),0,0)
+            self.nixl_wrapper.read_remote_data(327680,0,0)
             # self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2/128,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         import time
-        time.sleep(5)
-        # logger.info(f"zovlog:============> all transfer complete!")
-        print(f"zovlog:============>tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
+        time.sleep(2)
+        for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
+            print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = }")
+
         return
         # NOTE(rob): having the staging blocks be on the READER side is
         # not going to work well (since we will have to call rearrange tensors).

@@ -689,7 +689,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                            0,
                            torch.from_numpy(token_indices),
                            out=self.input_ids_cpu[:total_num_scheduled_tokens])
-
+        logger.info(f"zovlog:===============> in prepare inputs,{self.input_ids_cpu = },{total_num_scheduled_tokens = }")
         self.input_batch.block_table.compute_slot_mapping(
             req_indices, positions_np)
         self.input_batch.block_table.commit_slot_mapping(
@@ -704,6 +704,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             num_scheduled_tokens)
 
         # Copy the tensors to the GPU.
+        logger.info(f"zovlog:===========> in prepare inputs,{self.input_ids = },{total_num_scheduled_tokens = }")
         self.input_ids[:total_num_scheduled_tokens].copy_(
             self.input_ids_cpu[:total_num_scheduled_tokens], non_blocking=True)
         if self.uses_mrope:

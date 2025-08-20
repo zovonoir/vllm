@@ -282,6 +282,7 @@ class MoRIIOConnectorScheduler:
             self.vllm_config.parallel_config.data_parallel_rank *
             self.vllm_config.parallel_config.tensor_parallel_size)
         logger.info(f"zovlog::==========> Initializing MoRIIO Scheduler {engine_id = },{self.side_channel_port = }")
+        self.is_producer = vllm_config.kv_transfer_config.kv_role == "kv_producer"
         # self.gotted = False
         # Requests that need to start recv/send.
         # New requests are added by update_state_after_alloc in
@@ -310,14 +311,17 @@ class MoRIIOConnectorScheduler:
             * true if the external KV cache tokens will be loaded
               asynchronously (between scheduler steps).
         """
-
+        if self.is_producer:
+            return 0,False
+        
         logger.info(f"zovlog:==============> call get_num_new_matched_tokens,{request.kv_transfer_params = }")
         params = request.kv_transfer_params
         logger.debug(
             "NIXLConnector get_num_new_matched_tokens: "
             "num_computed_tokens=%s, kv_transfer_params=%s",
             num_computed_tokens, params)
-
+        return len(request.prompt_token_ids) - 1 - num_computed_tokens,False
+    
         if params is not None and params.get("do_remote_prefill"):
             # Remote prefill: get all prompt blocks from remote.
             assert num_computed_tokens % self.block_size == 0

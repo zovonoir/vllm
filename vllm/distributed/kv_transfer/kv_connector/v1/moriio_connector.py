@@ -812,6 +812,7 @@ class MoRIIOConnectorWorker:
         """只会在llmengine初始化的时候调用一次,注册所有已经分配的kvcache"""
         for _,t in kv_caches.items():
             t = t.zero_()
+            logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
         # kv_caches,KEY layer name,VALUE cache tensor,(2,numblocks,blocksize,headnum,headsize)
         _, first_kv_cache = next(iter(kv_caches.items()))
         kv_elem_size = first_kv_cache.element_size()
@@ -906,7 +907,7 @@ class MoRIIOConnectorWorker:
                 moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) 
                 self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
                 self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
-                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{first_kv_cache.shape = },{block_shape = }")
+                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{cache.shape = },{block_shape = }")
 
 
 

@@ -686,10 +686,7 @@ class MoRIIOConnectorWorker:
                     # now we send tensor meta data for each block
                     buf = pickle.dumps(layer_name_to_local_kv_cache_metadata)
                     sock.send_multipart((identity, b"", buf))
-                    # for layer_name,metadata in layer_name_to_local_kv_cache_metadata.items():
-                    #     sock.send_multipart((identity, b"", metadata))
-                    # sock.send_multipart((identity, b"", OVER))
-                    logger.info(f"zovlog:=====> P all sent.............. {layer_name_to_local_kv_cache_metadata = }")
+                    # logger.info(f"zovlog:=====> P all sent.............. {layer_name_to_local_kv_cache_metadata = }")
                 else:
                     pass
 
@@ -719,9 +716,9 @@ class MoRIIOConnectorWorker:
 
         # Send query for the request.
         with zmq_ctx(zmq.DEALER, path) as sock:
-            logger.info(f"zovlog:=======> prepare send msg to P INSTAZNCE")
+            # logger.info(f"zovlog:=======> prepare send msg to P INSTAZNCE")
             sock.send(GET_META_MSG)
-            logger.info(f"zovlog:=======> send finished,prepare recvive")
+            # logger.info(f"zovlog:=======> send finished,prepare recvive")
             received_frame = sock.recv_multipart()
             if len(received_frame) != 2 or received_frame[0] != b"":
                 assert 0,f"unexpected frame! {received_frame = }"
@@ -906,7 +903,7 @@ class MoRIIOConnectorWorker:
                 self.layer_name_to_local_kv_cache_metadata[layer_name] = []
 
             for cache in cache_list:
-                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) # register one block
+                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) 
                 self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
                 self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
                 logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{first_kv_cache.shape = },{block_shape = }")
@@ -1289,18 +1286,19 @@ class MoRIIOConnectorWorker:
         logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
-        stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
+        # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
+        stride = self.kv_caches[layer_name].stride()
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
             self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for blkid in remote_block_ids:
-                offset_k = 2*(0 * stride[0] + blkid * stride[1])
-                offset_v = 2*(1 * stride[0] + blkid * stride[1])
-                transfer_size_byte = blksize * hn * hs * 2
+                offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
+                offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
+                transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
                 self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
-                break 
+                # break 
             # self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2/128,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())
             break
         logger.info(f"zovlog:=======> wait for all transfer complete!")

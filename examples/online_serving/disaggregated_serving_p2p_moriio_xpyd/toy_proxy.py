@@ -124,8 +124,8 @@ async def handle_request():
     response_json = await send_request_to_prefill(prefill_instance_endpoint['request_address'],req_data,request_id)
     # 现在decode可以获取prefill的所有信息了
     ip, port = extract_ip_port(prefill_instance_endpoint['request_address'])
-    # response_json['kv_transfer_params']["do_remote_decode"] = False
-    # response_json['kv_transfer_params']["do_remote_prefill"] = True
+    response_json['kv_transfer_params']["do_remote_decode"] = False
+    response_json['kv_transfer_params']["do_remote_prefill"] = True
     response_json['kv_transfer_params']["remote_host"] = ip
     response_json['kv_transfer_params']["remote_port"] = port # 似乎没用
     response_json['kv_transfer_params']["remote_handshake_port"] = prefill_instance_endpoint['handshake_port']

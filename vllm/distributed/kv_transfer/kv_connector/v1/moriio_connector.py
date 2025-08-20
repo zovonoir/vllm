@@ -1311,7 +1311,7 @@ class MoRIIOConnectorWorker:
                 offset_k = self.kv_caches[layer_name].element_size() * (blkid * blksize*hs*hn)
                 offset_v = self.kv_caches[layer_name].element_size() * (blkid * blksize*hs*hn)
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
-                logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
+                logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = }")
                 self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
                 self.nixl_wrapper.set_local_memory_metadata(self.layer_name_to_local_v_cache_metadata[layer_name][0])

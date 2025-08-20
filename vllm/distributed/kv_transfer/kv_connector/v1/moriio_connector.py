@@ -1297,6 +1297,7 @@ class MoRIIOConnectorWorker:
             # local_metadata = MemoryDesc.unpack(local_metadata)
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for blkid in remote_block_ids:
+                continue
                 offset_k = 0 * stride[0] + blkid * stride[1]
                 offset_v = 1 * stride[0] + blkid * stride[1]
                 transfer_size_byte = blksize * hn * hs * self.kv_element_size
@@ -1309,7 +1310,7 @@ class MoRIIOConnectorWorker:
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         # import time
         # time.sleep(2)
-        self.nixl_wrapper.waiting_for_transfer_complete()
+        # self.nixl_wrapper.waiting_for_transfer_complete()
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
             print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
             break

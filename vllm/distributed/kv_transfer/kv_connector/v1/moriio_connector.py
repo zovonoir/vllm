@@ -117,6 +117,7 @@ class MoRIIOWrapper():
             transfer_size_byte,
             self.moriio_engine.allocate_transfer_uid())
         while transfer_status.Code() == StatusCode.INIT:
+            print("waiting for transfer complete")
             pass
         # self.transfer_status.append(transfer_status)
 

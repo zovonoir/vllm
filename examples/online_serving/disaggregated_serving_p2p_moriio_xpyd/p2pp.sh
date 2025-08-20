@@ -6,8 +6,8 @@ set -ex
 export GLOO_SOCKET_IFNAME=ens50f0
 export NCCL_SOCKET_IFNAME=ens50f0
 
-export CUDA_VISIBLE_DEVICES=4
-export HIP_VISIBLE_DEVICES=4
+export CUDA_VISIBLE_DEVICES=3
+export HIP_VISIBLE_DEVICES=3
 # models--chwan--DeepSeek-V3-5layer/snapshots/38a0c0ee55158e7d2ac9a6af1de94c4dfe084872
 export NCCL_NCHANNELS_PER_NET_PEER=1
 #export VLLM_LOGGING_CONFIG_PATH=log.conf.json

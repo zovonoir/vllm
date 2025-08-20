@@ -5,8 +5,8 @@ LOG_FILE="logs/vllm_serve_decode_$(date +'%Y%m%d_%H-%M-%S').log"
 export GLOO_SOCKET_IFNAME=ens50f0
 export NCCL_SOCKET_IFNAME=ens50f0
 
-export CUDA_VISIBLE_DEVICES=4
-export HIP_VISIBLE_DEVICES=4
+export CUDA_VISIBLE_DEVICES=3
+export HIP_VISIBLE_DEVICES=3
 export NCCL_NCHANNELS_PER_NET_PEER=1
 #export VLLM_LOGGING_CONFIG_PATH=log.conf.json
 #export NCCL_DEBUG=INFO 

@@ -116,8 +116,8 @@ class MoRIIOWrapper():
             self.remote_memory_metadata, remote_offset, 
             transfer_size_byte,
             self.moriio_engine.allocate_transfer_uid())
-        while transfer_status.Code() == StatusCode.INIT:
-            pass
+        # while transfer_status.Code() == StatusCode.INIT:
+        #     pass
         # self.transfer_status.append(transfer_status)
 
     def waiting_for_transfer_complete(self):

@@ -1303,7 +1303,7 @@ class MoRIIOConnectorWorker:
         # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
-        stride = self.kv_caches[layer_name].stride()
+        # stride = self.kv_caches[layer_name].stride()
         for layer_name,local_k_cache_metadata in self.layer_name_to_local_k_cache_metadata.items():
             for blkid in remote_block_ids:
                 self.nixl_wrapper.set_local_memory_metadata(self.layer_name_to_local_k_cache_metadata[layer_name][0])

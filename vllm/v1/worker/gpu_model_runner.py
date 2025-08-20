@@ -1482,7 +1482,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
          spec_decode_metadata, num_scheduled_tokens_np,
          spec_decode_common_attn_metadata) = (
              self._prepare_inputs(scheduler_output))
-
+        logger.info(f"zovlog:=================> scheduler_output.total_num_scheduled_tokens = {scheduler_output.total_num_scheduled_tokens},{self.input_ids = }")
         num_scheduled_tokens = scheduler_output.total_num_scheduled_tokens
         if (self.use_cuda_graph
                 and num_scheduled_tokens <= self.cudagraph_batch_sizes[-1]):

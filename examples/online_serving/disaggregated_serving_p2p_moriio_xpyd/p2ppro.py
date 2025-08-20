@@ -149,3 +149,8 @@ async def handle_request():
         print(e)
         print("".join(traceback.format_exception(*exc_info)))
 
+if __name__ == "__main__":
+    # assert 0
+    t = start_service_discovery("0.0.0.0", 30001)
+    app.run(host="0.0.0.0", port=10001)
+    t.join()

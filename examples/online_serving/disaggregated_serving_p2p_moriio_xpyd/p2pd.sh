@@ -28,5 +28,5 @@ VLLM_USE_V1=1 VLLM_ROCM_USE_AITER=1 VLLM_ENABLE_DSV3=0  SAFETENSORS_FAST_GPU=1  
         --gpu-memory-utilization 0.7 \
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \
-        --kv-transfer-config '{"kv_connector":"P2pNcclConnector","kv_role":"kv_consumer","kv_buffer_size":"4e10","kv_port":"25001","kv_connector_extra_config":{"proxy_ip":"10.235.192.59","proxy_port":"30001","http_port":"40005","send_type":"PUT","nccl_num_channels":"16"}}'
+        --kv-transfer-config '{"kv_connector":"P2pNcclConnector","kv_role":"kv_consumer","kv_buffer_size":"4e10","kv_port":"28001","kv_connector_extra_config":{"proxy_ip":"10.235.192.59","proxy_port":"30001","http_port":"40005","send_type":"PUT","nccl_num_channels":"16"}}'
 } 2>&1 | tee -a "$LOG_FILE" &

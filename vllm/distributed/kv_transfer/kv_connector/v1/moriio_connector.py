@@ -512,10 +512,14 @@ class MoRIIOConnectorWorker:
         self.local_kv_cache_metadata = []
         self.local_kv_cache_size = []
         self.layer_name_to_local_kv_cache_metadata:dict[str, List[Any]] = dict()
+        self.layer_name_to_local_k_cache_metadata:dict[str, List[Any]] = dict()
+        self.layer_name_to_local_v_cache_metadata:dict[str, List[Any]] = dict()
 
         self.remote_kv_cache_metadata = []
         self.remote_kv_cache_size = []
         self.layer_name_to_remote_kv_cache_metadata:dict[str, List[Any]] = dict()
+        self.layer_name_to_remote_k_cache_metadata:dict[str, List[Any]] = dict()
+        self.layer_name_to_remote_v_cache_metadata:dict[str, List[Any]] = dict()
         self.slot_size_bytes = 0
 
         self.load_kv_flag = False # False 代表从未load过
@@ -656,7 +660,7 @@ class MoRIIOConnectorWorker:
     @staticmethod
     def _nixl_handshake_listener(metadata: MoRIIOAgentMetadata,
                                  ready_event: threading.Event, base_port: int,
-                                 tp_rank: int,layer_name_to_local_kv_cache_metadata:dict ):
+                                 tp_rank: int,layer_name_to_local_v_cache_metadata:dict ,layer_name_to_local_k_cache_metadata:dict ):
         """Background thread for getting new MoRIIO handshakes."""
 
         encoder = msgspec.msgpack.Encoder()
@@ -684,7 +688,9 @@ class MoRIIOConnectorWorker:
                     sock.send_multipart((identity, b"", encoded_data)) # send local mori io engine meta data
 
                     # now we send tensor meta data for each block
-                    buf = pickle.dumps(layer_name_to_local_kv_cache_metadata)
+                    buf = pickle.dumps(layer_name_to_local_k_cache_metadata)
+                    sock.send_multipart((identity, b"", buf))
+                    buf = pickle.dumps(layer_name_to_local_v_cache_metadata)
                     sock.send_multipart((identity, b"", buf))
                     # logger.info(f"zovlog:=====> P all sent.............. {layer_name_to_local_kv_cache_metadata = }")
                 else:
@@ -762,11 +768,16 @@ class MoRIIOConnectorWorker:
             if len(received_frame) != 2 or received_frame[0] != b"":
                 assert 0,f"Unexpected frame! {received_frame = }"
             buf = received_frame[1]
-            self.layer_name_to_remote_kv_cache_metadata = pickle.loads(buf)
+            # self.layer_name_to_remote_kv_cache_metadata = pickle.loads(buf)
+            self.layer_name_to_remote_k_cache_metadata = pickle.loads(buf)
+
+            received_frame = sock.recv_multipart()
+            buf = received_frame[1]
+            self.layer_name_to_remote_v_cache_metadata = pickle.loads(buf)
                 
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
-            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = },{self.remote_kv_cache_metadata = },{self.layer_name_to_remote_kv_cache_metadata = }")
+            logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.layer_name_to_remote_v_cache_metadata = },{self.layer_name_to_remote_k_cache_metadata}")
 
         # Remote rank -> agent name.
         logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
@@ -899,14 +910,19 @@ class MoRIIOConnectorWorker:
 
         for layer_name,kv_cache in kv_caches.items():
             cache_list = [kv_cache] if use_mla or self._use_flashinfer else kv_cache
-            if layer_name not in self.layer_name_to_local_kv_cache_metadata:
-                self.layer_name_to_local_kv_cache_metadata[layer_name] = []
+            # if layer_name not in self.layer_name_to_local_kv_cache_metadata:
+            #     self.layer_name_to_local_kv_cache_metadata[layer_name] = []
+            if layer_name not in self.layer_name_to_local_v_cache_metadata:
+                self.layer_name_to_local_k_cache_metadata[layer_name] = []
+                self.layer_name_to_local_v_cache_metadata[layer_name] = []
 
             for cache in cache_list:
-                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) 
-                self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
+                # moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache[0]) 
+                # self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
+                self.layer_name_to_local_k_cache_metadata[layer_name].append( self.nixl_wrapper.register_local_tensor(cache[0]) )
+                self.layer_name_to_local_v_cache_metadata[layer_name].append( self.nixl_wrapper.register_local_tensor(cache[1]) )
                 self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
-                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{first_kv_cache.shape = },{block_shape = }")
+                # logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{first_kv_cache.shape = },{block_shape = }")
 
 
 
@@ -947,7 +963,7 @@ class MoRIIOConnectorWorker:
         ready_event = threading.Event()
         self._nixl_handshake_listener_t = threading.Thread(
             target=self._nixl_handshake_listener,
-            args=(metadata, ready_event, self.side_channel_port, self.tp_rank,self.layer_name_to_local_kv_cache_metadata),
+            args=(metadata, ready_event, self.side_channel_port, self.tp_rank,self.layer_name_to_local_k_cache_metadata,self.layer_name_to_local_v_cache_metadata),
             daemon=True,
             name="nixl_handshake_listener")
         self._nixl_handshake_listener_t.start()
@@ -1288,14 +1304,18 @@ class MoRIIOConnectorWorker:
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
         stride = self.kv_caches[layer_name].stride()
-        for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-            self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
-            self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
+        for layer_name,local_k_cache_metadata in self.layer_name_to_local_k_cache_metadata.items():
             for blkid in remote_block_ids:
-                offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
-                offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
+                self.nixl_wrapper.set_local_memory_metadata(self.layer_name_to_local_k_cache_metadata[layer_name][0])
+                self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_k_cache_metadata[layer_name][0])
+                offset_k = self.kv_caches[layer_name].element_size() * (blkid * blksize*hs*hn)
+                offset_v = self.kv_caches[layer_name].element_size() * (blkid * blksize*hs*hn)
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
+
+                self.nixl_wrapper.set_local_memory_metadata(self.layer_name_to_local_v_cache_metadata[layer_name][0])
+                self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_v_cache_metadata[layer_name][0])
                 self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
                 # break 

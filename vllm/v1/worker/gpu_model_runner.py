@@ -1567,14 +1567,14 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
         ), self.maybe_get_kv_connector_output(
                 scheduler_output) as kv_connector_output:
             logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,1,0,0,0:32] = }")
-            logger.info(f"zovlog:=========> 在执行之前")
-            for i in range(0,28):
-                print(f"zovlog:=========> {i=},[0,0,...]={self.kv_caches[i][0,0,...].sum().item()}")
-                print(f"zovlog:=========> {i=},[0,1,...]={self.kv_caches[i][0,1,...].sum().item()}")
-                print(f"zovlog:=========> {i=},[0,2,...]={self.kv_caches[i][0,2,...].sum().item()}")
-                print(f"zovlog:=========> {i=},[1,0,...]={self.kv_caches[i][1,0,...].sum().item()}")
-                print(f"zovlog:=========> {i=},[1,1,...]={self.kv_caches[i][1,1,...].sum().item()}")
-                print(f"zovlog:=========> {i=},[1,2,...]={self.kv_caches[i][1,2,...].sum().item()}")
+            # logger.info(f"zovlog:=========> 在执行之前")
+            # for i in range(0,28):
+            #     print(f"zovlog:=========> {i=},[0,0,...]={self.kv_caches[i][0,0,...].sum().item()}")
+            #     print(f"zovlog:=========> {i=},[0,1,...]={self.kv_caches[i][0,1,...].sum().item()}")
+            #     print(f"zovlog:=========> {i=},[0,2,...]={self.kv_caches[i][0,2,...].sum().item()}")
+            #     print(f"zovlog:=========> {i=},[1,0,...]={self.kv_caches[i][1,0,...].sum().item()}")
+            #     print(f"zovlog:=========> {i=},[1,1,...]={self.kv_caches[i][1,1,...].sum().item()}")
+            #     print(f"zovlog:=========> {i=},[1,2,...]={self.kv_caches[i][1,2,...].sum().item()}")
             model_output = self.model(
                 input_ids=input_ids,
                 positions=positions,
@@ -1753,14 +1753,14 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         self.eplb_step()
         # logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,1,0,0,0:32] = }")
-        logger.info(f"zovlog:=========> 在执行之后")
-        for i in range(0,28):
-            print(f"zovlog:=========> {i=},[0,0,...]={self.kv_caches[i][0,0,...].sum().item()}")
-            print(f"zovlog:=========> {i=},[0,1,...]={self.kv_caches[i][0,1,...].sum().item()}")
-            print(f"zovlog:=========> {i=},[0,2,...]={self.kv_caches[i][0,2,...].sum().item()}")
-            print(f"zovlog:=========> {i=},[1,0,...]={self.kv_caches[i][1,0,...].sum().item()}")
-            print(f"zovlog:=========> {i=},[1,1,...]={self.kv_caches[i][1,1,...].sum().item()}")
-            print(f"zovlog:=========> {i=},[1,2,...]={self.kv_caches[i][1,2,...].sum().item()}")
+        # logger.info(f"zovlog:=========> 在执行之后")
+        # for i in range(0,28):
+        #     print(f"zovlog:=========> {i=},[0,0,...]={self.kv_caches[i][0,0,...].sum().item()}")
+        #     print(f"zovlog:=========> {i=},[0,1,...]={self.kv_caches[i][0,1,...].sum().item()}")
+        #     print(f"zovlog:=========> {i=},[0,2,...]={self.kv_caches[i][0,2,...].sum().item()}")
+        #     print(f"zovlog:=========> {i=},[1,0,...]={self.kv_caches[i][1,0,...].sum().item()}")
+        #     print(f"zovlog:=========> {i=},[1,1,...]={self.kv_caches[i][1,1,...].sum().item()}")
+        #     print(f"zovlog:=========> {i=},[1,2,...]={self.kv_caches[i][1,2,...].sum().item()}")
         return ModelRunnerOutput(
             req_ids=self.input_batch.req_ids,
             req_id_to_index=self.input_batch.req_id_to_index,

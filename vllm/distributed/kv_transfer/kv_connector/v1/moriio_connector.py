@@ -321,7 +321,8 @@ class MoRIIOConnectorScheduler:
         if params is not None and params.get("do_remote_prefill"):
             # Remote prefill: get all prompt blocks from remote.
             assert num_computed_tokens % self.block_size == 0
-            rounded_num_prompt_tokens = round_down(len(request.prompt_token_ids), self.block_size)
+            # rounded_num_prompt_tokens = round_down(len(request.prompt_token_ids), self.block_size)
+            rounded_num_prompt_tokens = len(request.prompt_token_ids)
             count = max(rounded_num_prompt_tokens - num_computed_tokens, 0)
             logger.info(f"zovlog:===============> call get_num_new_matched_tokens,{len(request.prompt_token_ids) = },{self.block_size = },{round_down(len(request.prompt_token_ids), self.block_size) = },{num_computed_tokens = },{count = }")
             if count > 0:

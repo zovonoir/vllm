@@ -118,7 +118,7 @@ class MoRIIOWrapper():
             self.moriio_engine.allocate_transfer_uid())
         # while transfer_status.Code() == StatusCode.INIT:
         #     pass
-        # self.transfer_status.append(transfer_status)
+        self.transfer_status.append(transfer_status)
 
     def waiting_for_transfer_complete(self):
         while self.transfer_status:

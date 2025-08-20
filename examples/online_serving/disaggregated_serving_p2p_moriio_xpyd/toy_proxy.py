@@ -130,8 +130,8 @@ async def handle_request():
     response_json['kv_transfer_params']["remote_port"] = port # 似乎没用
     response_json['kv_transfer_params']["remote_handshake_port"] = prefill_instance_endpoint['handshake_port']
 
-    # req_data['max_tokens'] -= 1
-    # req_data['prompt'] = response_json['choices'][0]['text']
+    req_data['max_tokens'] -= 1
+    req_data['prompt'] += response_json['choices'][0]['text']
     # req_data['kv_transfer_params'] = {
     #     "do_remote_decode": False,
     #     "do_remote_prefill": True,

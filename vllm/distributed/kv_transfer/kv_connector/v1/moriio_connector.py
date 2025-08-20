@@ -812,7 +812,7 @@ class MoRIIOConnectorWorker:
         """只会在llmengine初始化的时候调用一次,注册所有已经分配的kvcache"""
         for _,t in kv_caches.items():
             t = t.zero_()
-            logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
+            # logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
         # kv_caches,KEY layer name,VALUE cache tensor,(2,numblocks,blocksize,headnum,headsize)
         _, first_kv_cache = next(iter(kv_caches.items()))
         kv_elem_size = first_kv_cache.element_size()
@@ -898,8 +898,12 @@ class MoRIIOConnectorWorker:
                     (base_addr, region_len, cache.device.index, ""))
                 kv_caches_base_addr.append(base_addr)
 
+        for _,t in kv_caches.items():
+            logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
+
         for layer_name,kv_cache in kv_caches.items():
             cache_list = [kv_cache] if use_mla or self._use_flashinfer else kv_cache
+            logger.info(f"zovlog:===========>{len(cache_list) = }")
             if layer_name not in self.layer_name_to_local_kv_cache_metadata:
                 self.layer_name_to_local_kv_cache_metadata[layer_name] = []
 

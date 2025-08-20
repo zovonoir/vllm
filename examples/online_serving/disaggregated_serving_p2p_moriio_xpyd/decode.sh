@@ -20,7 +20,7 @@ export VLLM_USE_V1=1
 export VLLM_ROCM_USE_AITER=1 
 export VLLM_ENABLE_DSV3=0  
 export SAFETENSORS_FAST_GPU=1   
-export IBV_LOG_LEVEL=7
+export IBV_DRIVERS_LOG_LEVEL=4
 # {
 vllm serve /apps/data/models/Qwen3_MINI  \
         -tp 1   \

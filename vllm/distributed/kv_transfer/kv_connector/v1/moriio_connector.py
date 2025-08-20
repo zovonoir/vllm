@@ -1300,7 +1300,7 @@ class MoRIIOConnectorWorker:
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
                 # break 
             # self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2/128,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())
-            break
+            # break
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         # self.nixl_wrapper.waiting_for_transfer_complete()
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():

@@ -1298,8 +1298,8 @@ class MoRIIOConnectorWorker:
             print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
             break
         
-        layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
-        logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
+        # layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
+        # logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]

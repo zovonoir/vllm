@@ -32,5 +32,5 @@ export    NCCL_IB_DISABLE=0
     --gpu-memory-utilization 0.7 \
     --disable-log-request \
     --served-model-name deepseek-ai/DeepSeek-R1 \
-    --kv-transfer-config '{"kv_connector":"P2pNcclConnector","kv_role":"kv_producer","kv_buffer_size":"4e10","kv_port":"21007","kv_connector_extra_config":{"proxy_ip":"10.235.192.54","proxy_port":"30001","http_port":"20005","send_type":"PUT","nccl_num_channels":"16"}}'
+    --kv-transfer-config '{"kv_connector":"P2pNcclConnector","kv_role":"kv_producer","kv_buffer_size":"4e10","kv_port":"29007","kv_connector_extra_config":{"proxy_ip":"10.235.192.54","proxy_port":"30001","http_port":"20005","send_type":"PUT","nccl_num_channels":"16"}}'
  } 2>&1 | tee -a "$LOG_FILE" &

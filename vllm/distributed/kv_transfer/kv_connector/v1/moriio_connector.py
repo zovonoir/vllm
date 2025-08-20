@@ -902,16 +902,18 @@ class MoRIIOConnectorWorker:
             logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
 
         for layer_name,kv_cache in kv_caches.items():
-            cache_list = [kv_cache] if use_mla or self._use_flashinfer else kv_cache
-            logger.info(f"zovlog:===========>{len(cache_list) = }")
+            # cache_list = [kv_cache] if use_mla or self._use_flashinfer else kv_cache
+            # workround
+            # logger.info(f"zovlog:===========>{len(cache_list) = }")
             if layer_name not in self.layer_name_to_local_kv_cache_metadata:
                 self.layer_name_to_local_kv_cache_metadata[layer_name] = []
 
-            for cache in cache_list:
-                moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) 
-                self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
-                self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
-                logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{cache.shape = },{block_shape = }")
+            # for cache in cache_list:
+            # moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) 
+            moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(kv_cache) 
+            self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
+            self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
+            logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{kv_cache.shape = },{block_shape = }")
 
 
 

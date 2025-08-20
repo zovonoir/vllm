@@ -1298,7 +1298,7 @@ class MoRIIOConnectorWorker:
                 offset_v = 2*(1 * stride[0] + blkid * stride[1])
                 transfer_size_byte = blksize * hn * hs * 2
                 logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v/hn/hs,offset_v/hn/hs)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v//hn//hs,offset_v//hn//hs)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
                 break 
             # self.nixl_wrapper.moriio_engine.read(local_metadata,0,MemoryDesc.unpack(self.layer_name_to_remote_kv_cache_metadata[layer_name][0]),0,2*63103* 16* 8* 128*2/128,self.nixl_wrapper.moriio_engine.allocate_transfer_uid())

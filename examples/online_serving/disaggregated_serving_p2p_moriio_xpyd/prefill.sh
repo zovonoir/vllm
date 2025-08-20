@@ -16,7 +16,7 @@ export VLLM_RPC_TIMEOUT=1800000
 # export    NCCL_IB_DISABLE=1
 # mkdir -p profiler
 # export VLLM_TORCH_PROFILER_DIR=./profiler
-
+export IBV_LOG_LEVEL=7
 export VLLM_USE_V1=1 
 export VLLM_ROCM_USE_AITER=1 
 export VLLM_ENABLE_DSV3=0  

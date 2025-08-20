@@ -325,10 +325,10 @@ class MoRIIOConnectorScheduler:
             rounded_num_prompt_tokens = len(request.prompt_token_ids)
             count = max(rounded_num_prompt_tokens - num_computed_tokens, 0)
             logger.info(f"zovlog:===============> call get_num_new_matched_tokens,{len(request.prompt_token_ids) = },{self.block_size = },{round_down(len(request.prompt_token_ids), self.block_size) = },{num_computed_tokens = },{count = }")
-            if count > 0:
-                return count,False
             # if count > 0:
-            #     return count, True
+            #     return count,False
+            if count > 0:
+                return count, True
 
         # No remote prefill for this request.
         return 0, False

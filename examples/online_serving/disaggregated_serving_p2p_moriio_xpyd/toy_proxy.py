@@ -144,6 +144,7 @@ async def handle_request():
 
     # 这个kvtransfer param里面到底写了什么? 
     kv_transfer_params = response_json.get('kv_transfer_params', {})
+    print(f"zovlog:========> proxy kv_transfer_params = {kv_transfer_params}")
     if kv_transfer_params:
         req_data["kv_transfer_params"] = kv_transfer_params
 

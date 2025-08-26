@@ -30,7 +30,6 @@ vllm serve /apps/data/models/Qwen3-32B  \
         --host 0.0.0.0 \
         --port 40005 \
         --trust-remote-code \
-        --enforce-eager \
         --gpu-memory-utilization 0.6\
         --disable-log-request \
         --served-model-name deepseek-ai/DeepSeek-R1 \

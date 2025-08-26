@@ -79,11 +79,11 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
     }
     req_data_copy["stream"] = False
     req_data_copy["max_tokens"] = 1
-    if "max_completion_tokens" in req_data:
-        req_data["max_completion_tokens"] = 1
-    if "stream_options" in req_data:
-        del req_data["stream_options"]
-    print(f"zovlog ========================== send response to prefill {req_data}")
+    if "max_completion_tokens" in req_data_copy:
+        req_data_copy["max_completion_tokens"] = 1
+    if "stream_options" in req_data_copy:
+        del req_data_copy["stream_options"]
+    print(f"zovlog ========================== send response to prefill {req_data_copy}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -133,16 +133,6 @@ async def handle_request():
 
     req_data['max_tokens'] -= 1
     # req_data['prompt'] += response_json['choices'][0]['text'] # comment out for ttft testing
-
-    # req_data['kv_transfer_params'] = {
-    #     "do_remote_decode": False,
-    #     "do_remote_prefill": True,
-    #     "remote_engine_id": response_json['kv_transfer_params']["remote_engine_id"],
-    #     "remote_block_ids": response_json['kv_transfer_params']["remote_block_ids"],
-    #     "remote_host": response_json['kv_transfer_params']["remote_host"],
-    #     "remote_port": response_json['kv_transfer_params']["remote_port"],
-    #     "remote_handshake_port":response_json['kv_transfer_params']["remote_handshake_port"]
-    # }
 
     kv_transfer_params = response_json.get('kv_transfer_params', {})
     # print(f"zovlog:========> proxy kv_transfer_params = {kv_transfer_params}")

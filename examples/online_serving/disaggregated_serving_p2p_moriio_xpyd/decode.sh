@@ -24,7 +24,6 @@ export IBV_DRIVERS_LOG_LEVEL=4
 # {
 vllm serve /apps/data/models/Qwen3-32B  \
         -tp 1   \
-        --enforce-eager \
         --block-size 16  \
         --max_seq_len_to_capture 6144 \
         --max-num-batched-tokens 6144 \

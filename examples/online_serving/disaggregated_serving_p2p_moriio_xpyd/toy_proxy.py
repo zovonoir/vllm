@@ -83,7 +83,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
         req_data_copy["max_completion_tokens"] = 1
     if "stream_options" in req_data_copy:
         del req_data_copy["stream_options"]
-    print(f"zovlog ========================== send response to prefill {req_data_copy}")
+    # print(f"zovlog ========================== send response to prefill {req_data_copy}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -98,7 +98,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
                 raise RuntimeError("response.status != 200")
 
 async def send_request_to_decode(endpoint,req_data,request_id):
-    print(f"zovlog ========================== send response to decode {req_data}")
+    # print(f"zovlog ========================== send response to decode {req_data}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -118,7 +118,7 @@ async def handle_request():
     global request_nums
     extract_ip_port = lambda url: re.search(r'//(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)', url).groups()
     req_data = await request.get_json()
-    print(f"req_data = {req_data}")
+    # print(f"req_data = {req_data}")
     request_id = str(uuid.uuid4())
     prefill_instance_endpoint = prefill_instances[request_nums % len(prefill_instances)]
     decode_instance_endpoint = decode_instances[request_nums % len(decode_instances)]

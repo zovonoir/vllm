@@ -83,6 +83,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
         req_data["max_completion_tokens"] = 1
     if "stream_options" in req_data:
         del req_data["stream_options"]
+    print(f"zovlog ========================== send response to prefill {req_data}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -97,7 +98,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
                 raise RuntimeError("response.status != 200")
 
 async def send_request_to_decode(endpoint,req_data,request_id):
-    # print(f"zovlog ========================== send response to decode {req_data}")
+    print(f"zovlog ========================== send response to decode {req_data}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",

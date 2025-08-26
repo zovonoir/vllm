@@ -1566,7 +1566,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                 skip_cuda_graphs=skip_cuda_graphs,
         ), self.maybe_get_kv_connector_output(
                 scheduler_output) as kv_connector_output:
-            logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,1,0,0,0:32] = }")
+            # logger.info(f"zovlog:**************> {input_ids = },{len(self.kv_caches) = },all sum = {self.kv_caches[0].shape = },{self.kv_caches[0][0,1,...].sum().item() = },{self.kv_caches[0][0,1,0,0,0:32] = }")
             # logger.info(f"zovlog:=========> 在执行之前")
             # for i in range(0,28):
             #     print(f"zovlog:=========> {i=},[0,0,...]={self.kv_caches[i][0,0,...].sum().item()}")

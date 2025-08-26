@@ -16,7 +16,6 @@ export SAFETENSORS_FAST_GPU=1
     --max-num-batched-tokens 6144 \
     --host 0.0.0.0 \
     --port 40005 \
-    --enforce-eager \
     --trust-remote-code \
     --gpu-memory-utilization 0.5 \
     --disable-log-request \

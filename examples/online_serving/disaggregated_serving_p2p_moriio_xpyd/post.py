@@ -19,7 +19,7 @@ def forward_request():
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
         }
-        print(f"zovlog:====>ready to post:{url=},{data = },{headers = }")
+        # print(f"zovlog:====>ready to post:{url=},{data = },{headers = }")
         with session.post(url=url, json=data, headers=headers) as response:
             if response.status == 200:
                 if True:

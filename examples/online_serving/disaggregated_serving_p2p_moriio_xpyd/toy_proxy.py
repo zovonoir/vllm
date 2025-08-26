@@ -65,7 +65,7 @@ def start_service_discovery(hostname, port):
     return _listener_thread
 
 async def send_request_to_prefill(endpoint,req_data,request_id):
-    print(f"zovlog:======> proxy {endpoint = }")
+    # print(f"zovlog:======> proxy {endpoint = }")
     req_data_copy = copy.deepcopy(req_data)
     
     # 本地做prefill,且decode只需要pull模式,所以prefill不需要在这里知晓远程decode任何信息
@@ -97,7 +97,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
                 raise RuntimeError("response.status != 200")
 
 async def send_request_to_decode(endpoint,req_data,request_id):
-    print(f"zovlog ========================== send response to decode {req_data}")
+    # print(f"zovlog ========================== send response to decode {req_data}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -131,7 +131,8 @@ async def handle_request():
     response_json['kv_transfer_params']["remote_handshake_port"] = prefill_instance_endpoint['handshake_port']
 
     req_data['max_tokens'] -= 1
-    req_data['prompt'] += response_json['choices'][0]['text']
+    # req_data['prompt'] += response_json['choices'][0]['text'] # comment out for ttft testing
+
     # req_data['kv_transfer_params'] = {
     #     "do_remote_decode": False,
     #     "do_remote_prefill": True,
@@ -142,9 +143,8 @@ async def handle_request():
     #     "remote_handshake_port":response_json['kv_transfer_params']["remote_handshake_port"]
     # }
 
-    # 这个kvtransfer param里面到底写了什么? 
     kv_transfer_params = response_json.get('kv_transfer_params', {})
-    print(f"zovlog:========> proxy kv_transfer_params = {kv_transfer_params}")
+    # print(f"zovlog:========> proxy kv_transfer_params = {kv_transfer_params}")
     if kv_transfer_params:
         req_data["kv_transfer_params"] = kv_transfer_params
 

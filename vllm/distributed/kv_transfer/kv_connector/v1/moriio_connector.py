@@ -345,7 +345,7 @@ class MoRIIOConnectorScheduler:
         logger.info(
             f"moriioConnector update_state_after_alloc: "
             f"num_external_tokens={num_external_tokens}, kv_transfer_params={params},{params.get("do_remote_prefill") = },{params.get("remote_block_ids") = }")
-        
+        logger.info(f"zovlog:0827--------------> call update_state_after_alloc blocks = {blocks}")
         if params is not None and params.get("do_remote_prefill"):
             if remote_block_ids := params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host",
@@ -359,13 +359,16 @@ class MoRIIOConnectorScheduler:
                     # 临时修改测试,如果local分配的和remote的长度不一样,那么就说明只需要load remote的后面几个
                     # Get unhashed blocks to pull from remote.
                     local_block_ids = blocks.get_block_ids()
+                    logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
                     assert len(local_block_ids) <= len(remote_block_ids)
                     if len(local_block_ids) == len(remote_block_ids):
                         # 全部需要load,pass
+                        logger.info(f"zovlog:0827--------------> passed!")
                         pass
                     else:
                         # 只需要load prefix cacheing 未命中的部分
                         local_block_ids = remote_block_ids[-len(local_block_ids):]
+                        logger.info(f"zovlog:0827--------------> len(local_block_ids) < len(remote_block_ids),{local_block_ids = }")
                     logger.info(f"zovlog:0827 ------------> unhashed blocks = {local_block_ids}")
                     self._reqs_need_recv[request.request_id] = (
                         request, local_block_ids)

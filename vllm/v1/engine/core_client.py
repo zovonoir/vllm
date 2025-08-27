@@ -791,6 +791,7 @@ class AsyncMPClient(MPClient):
                     if outputs.outputs or outputs.scheduler_stats:
                         outputs_queue.put_nowait(outputs)
             except Exception as e:
+                logger.info(f"zovlog:==========> catch an exception e = {e}")
                 outputs_queue.put_nowait(e)
             except asyncio.CancelledError:
                 outputs_queue.put_nowait(EngineDeadError())

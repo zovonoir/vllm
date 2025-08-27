@@ -1282,7 +1282,7 @@ class MoRIIOConnectorWorker:
                      dst_engine_id: str,
                      request_id: str):
         logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
-        return
+        # return
         # 直接开始传输
         # 每一层的对应blkid都需要传输
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():

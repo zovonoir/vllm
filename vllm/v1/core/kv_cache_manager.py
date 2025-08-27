@@ -264,7 +264,7 @@ class KVCacheManager:
             num_tokens=num_tokens_need_slot,
             new_computed_blocks=new_computed_block_list,
         )
-
+        
         if num_blocks_to_allocate > self.block_pool.get_num_free_blocks():
             # Cannot allocate new blocks
             return None
@@ -281,10 +281,10 @@ class KVCacheManager:
         # avoid the case where the new blocks cannot be allocated.
         self.coordinator.save_new_computed_blocks(request.request_id,
                                                   new_computed_block_list)
-
+        
         new_blocks = self.coordinator.allocate_new_blocks(
             request.request_id, num_tokens_need_slot)
-
+        
         # P/D: delay caching blocks if we have to recv from
         # remote. Update state for locally cached blocks.
         if not self.enable_caching or delay_cache_blocks:
@@ -301,7 +301,7 @@ class KVCacheManager:
             self.req_to_block_hashes[request.request_id],
             num_tokens_to_cache,
         )
-
+        logger.info(f"zovlog:0827 alloc slots {request = },,{num_new_tokens = },{num_new_computed_tokens = },{new_computed_blocks = },{num_blocks_to_allocate = },{new_computed_block_list = },{new_blocks = }")
         return KVCacheBlocks(new_blocks)
 
     def free(self, request: Request) -> None:

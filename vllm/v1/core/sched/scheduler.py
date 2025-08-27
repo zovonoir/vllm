@@ -439,7 +439,7 @@ class Scheduler(SchedulerInterface):
                         if num_new_tokens == 0:
                             # The request cannot be scheduled.
                             break
-
+                logger.info(f"zovlog:0827 prepare allocate_slots {request = },{num_new_tokens = },{num_external_computed_tokens = },{num_new_local_computed_tokens = },{new_computed_blocks = },{self.num_lookahead_tokens = }")
                 new_blocks = self.kv_cache_manager.allocate_slots(
                     request,
                     num_new_tokens + num_external_computed_tokens,
@@ -451,7 +451,7 @@ class Scheduler(SchedulerInterface):
                 if new_blocks is None:
                     # The request cannot be scheduled.
                     break
-
+                logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
                 # KVTransfer: the connector uses this info to determine
                 # if a load is needed. Note that
                 # This information is used to determine if a load is
@@ -463,6 +463,7 @@ class Scheduler(SchedulerInterface):
                         new_computed_blocks + new_blocks,
                         num_external_computed_tokens,
                     )
+                
 
                 # Request was already popped from self.waiting
                 # unless it was re-added above due to new_blocks being None.

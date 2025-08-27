@@ -1299,7 +1299,7 @@ class MoRIIOConnectorWorker:
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break
-        return 
+        return  
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
         logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches

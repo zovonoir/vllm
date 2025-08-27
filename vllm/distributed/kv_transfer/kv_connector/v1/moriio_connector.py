@@ -361,6 +361,8 @@ class MoRIIOConnectorScheduler:
                     local_block_ids = blocks.get_block_ids()
                     logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
                     assert len(local_block_ids) <= len(remote_block_ids)
+                    logger.error(f"zovlog:0827:====================> len(local_block_ids) = {len(local_block_ids)},len(remote_block_ids) = {len(remote_block_ids)}")
+                    logger.error(f"zovlog:0827:=====----> local_block_ids = {local_block_ids},remote_block_ids = {remote_block_ids}")
                     if len(local_block_ids) == len(remote_block_ids):
                         # 全部需要load,pass
                         logger.info(f"zovlog:0827--------------> passed!")

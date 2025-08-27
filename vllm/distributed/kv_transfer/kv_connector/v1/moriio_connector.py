@@ -337,8 +337,8 @@ class MoRIIOConnectorScheduler:
         # No remote prefill for this request.
         return 0, False
 
-    def update_state_after_alloc(self, request: "Request",
-                                 blocks: "KVCacheBlocks",
+    def update_state_after_alloc(self, request: "Request", # 包含remote使用到的blockid
+                                 blocks: "KVCacheBlocks", # local 分配好的blockid
                                  num_external_tokens: int):
         
         params = request.kv_transfer_params # zovlog: params 是none
@@ -347,15 +347,25 @@ class MoRIIOConnectorScheduler:
             f"num_external_tokens={num_external_tokens}, kv_transfer_params={params},{params.get("do_remote_prefill") = },{params.get("remote_block_ids") = }")
         
         if params is not None and params.get("do_remote_prefill"):
-            if params.get("remote_block_ids"):
+            if remote_block_ids := params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host",
                                              "remote_port")):
                     # If remote_blocks and num_external_tokens = 0, we have
                     # a full prefix cache hit on the D worker. We need to call
                     # send_notif in _read_blocks to free the memory on the P.
-                    local_block_ids = (blocks.get_unhashed_block_ids()
-                                       if num_external_tokens > 0 else [])
+
+                    # local_block_ids = (blocks.get_unhashed_block_ids()
+                    #                    if num_external_tokens > 0 else [])
+                    # 临时修改测试,如果local分配的和remote的长度不一样,那么就说明只需要load remote的后面几个
                     # Get unhashed blocks to pull from remote.
+                    local_block_ids = blocks.get_block_ids()
+                    assert len(local_block_ids) <= len(remote_block_ids)
+                    if len(local_block_ids) == len(remote_block_ids):
+                        # 全部需要load,pass
+                        pass
+                    else:
+                        # 只需要load prefix cacheing 未命中的部分
+                        local_block_ids = remote_block_ids[-len(local_block_ids):]
                     logger.info(f"zovlog:0827 ------------> unhashed blocks = {local_block_ids}")
                     self._reqs_need_recv[request.request_id] = (
                         request, local_block_ids)
@@ -1289,7 +1299,7 @@ class MoRIIOConnectorWorker:
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break
-        
+        return 
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
         logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches

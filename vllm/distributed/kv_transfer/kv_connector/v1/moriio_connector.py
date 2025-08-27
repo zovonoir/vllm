@@ -361,8 +361,8 @@ class MoRIIOConnectorScheduler:
                     local_block_ids = blocks.get_block_ids()[0]
                     logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
                     assert len(local_block_ids) <= len(remote_block_ids)
-                    logger.error(f"zovlog:0827:====================> len(local_block_ids) = {len(local_block_ids)},len(remote_block_ids) = {len(remote_block_ids)}")
-                    logger.error(f"zovlog:0827:=====----> local_block_ids = {local_block_ids},remote_block_ids = {remote_block_ids}")
+                    # logger.error(f"zovlog:0827:====================> len(local_block_ids) = {len(local_block_ids)},len(remote_block_ids) = {len(remote_block_ids)}")
+                    # logger.error(f"zovlog:0827:=====----> local_block_ids = {local_block_ids},remote_block_ids = {remote_block_ids}")
                     if len(local_block_ids) == len(remote_block_ids):
                         # 全部需要load,pass
                         logger.info(f"zovlog:0827--------------> passed!")
@@ -1297,7 +1297,7 @@ class MoRIIOConnectorWorker:
                      remote_block_ids: list[int], 
                      dst_engine_id: str,
                      request_id: str):
-        logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
+        # logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # return
         # 直接开始传输
         # 每一层的对应blkid都需要传输
@@ -1311,20 +1311,20 @@ class MoRIIOConnectorWorker:
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-            logger.error(f"zovlog:--------> {layer_name = },{local_kv_cache_metadata[0] = },{len(local_kv_cache_metadata) = },{self.kv_caches[layer_name].shape = },{self.kv_caches[layer_name].stride() = }")
+            # logger.error(f"zovlog:--------> {layer_name = },{local_kv_cache_metadata[0] = },{len(local_kv_cache_metadata) = },{self.kv_caches[layer_name].shape = },{self.kv_caches[layer_name].stride() = }")
             stride = self.kv_caches[layer_name].stride()
             self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for idx,local_blkid in enumerate(local_block_ids):
-                logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{local_blkid}")
+                # logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{local_blkid}")
                 offset_k_local = self.kv_caches[layer_name].element_size() * (0 * stride[0] + local_blkid * stride[1])
                 offset_v_local = self.kv_caches[layer_name].element_size() * (1 * stride[0] + local_blkid * stride[1])
                 offset_k_remote = self.kv_caches[layer_name].element_size() * (0 * stride[0] + remote_block_ids[idx] * stride[1])
                 offset_v_remote = self.kv_caches[layer_name].element_size() * (1 * stride[0] + remote_block_ids[idx] * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
+                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
+                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
             # for blkid in remote_block_ids:
             #     logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
             #     offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])

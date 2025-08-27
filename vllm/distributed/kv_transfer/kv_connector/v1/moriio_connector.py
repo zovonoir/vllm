@@ -358,7 +358,7 @@ class MoRIIOConnectorScheduler:
                     #                    if num_external_tokens > 0 else [])
                     # 临时修改测试,如果local分配的和remote的长度不一样,那么就说明只需要load remote的后面几个
                     # Get unhashed blocks to pull from remote.
-                    local_block_ids = blocks.get_block_ids()
+                    local_block_ids = blocks.get_block_ids()[0]
                     logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
                     assert len(local_block_ids) <= len(remote_block_ids)
                     logger.error(f"zovlog:0827:====================> len(local_block_ids) = {len(local_block_ids)},len(remote_block_ids) = {len(remote_block_ids)}")

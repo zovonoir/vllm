@@ -356,6 +356,7 @@ class MoRIIOConnectorScheduler:
                     local_block_ids = (blocks.get_unhashed_block_ids()
                                        if num_external_tokens > 0 else [])
                     # Get unhashed blocks to pull from remote.
+                    logger.info(f"zovlog:0827 ------------> unhashed blocks = {local_block_ids}")
                     self._reqs_need_recv[request.request_id] = (
                         request, local_block_ids)
                 else:
@@ -1238,19 +1239,19 @@ class MoRIIOConnectorWorker:
                 with self._handshake_lock:
                     if remote_engine_id not in self._remote_agents:
                         self._background_nixl_handshake(req_id, remote_engine_id, meta)
-                        logger.info(f"zovlog:==============> _background_nixl_handshake launched!")
+                        # logger.info(f"zovlog:==============> _background_nixl_handshake launched!")
                         continue
                         
             # Handshake already completed, start async read xfer.
-            logger.info(f"zovlog:==============> prepare read block ")
+            # logger.info(f"zovlog:==============> prepare read block ")
             self._read_blocks_for_req(req_id, meta)
-            logger.info(f"zovlog:==============> read block finished ")
+            # logger.info(f"zovlog:==============> read block finished ")
         # Start transfers for requests whose handshakes have now finished.
         logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
         
         while True:
             if self._ready_requests.empty() and not self.load_kv_flag: # 第一次进入,需要一直等待
-                logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
+                # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
                 pass
             elif not self._ready_requests.empty() and self.load_kv_flag:
                 logger.info(f"zovlog:==============> {self._ready_requests.empty() = }!!!!!!!!!!!!!!!!!!!!!!!!!!")

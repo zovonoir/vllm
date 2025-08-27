@@ -1281,7 +1281,7 @@ class MoRIIOConnectorWorker:
                      remote_block_ids: list[int], 
                      dst_engine_id: str,
                      request_id: str):
-        logger.info(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
+        logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
 
         # 直接开始传输
         # 每一层的对应blkid都需要传输
@@ -1294,12 +1294,13 @@ class MoRIIOConnectorWorker:
         # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
-        
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
+            logger.error(f"zovlog:--------> {layer_name = },{local_kv_cache_metadata[0] = },{len(local_kv_cache_metadata) = },{self.kv_caches[layer_name].stride() = }")
             stride = self.kv_caches[layer_name].stride()
             self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for blkid in remote_block_ids:
+                logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
                 offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
                 offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()

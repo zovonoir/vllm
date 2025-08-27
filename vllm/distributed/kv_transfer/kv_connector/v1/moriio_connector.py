@@ -1316,7 +1316,7 @@ class MoRIIOConnectorWorker:
             self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for idx,local_blkid in enumerate(local_block_ids):
-                logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{blkid}")
+                logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{local_blkid}")
                 offset_k_local = self.kv_caches[layer_name].element_size() * (0 * stride[0] + local_blkid * stride[1])
                 offset_v_local = self.kv_caches[layer_name].element_size() * (1 * stride[0] + local_blkid * stride[1])
                 offset_k_remote = self.kv_caches[layer_name].element_size() * (0 * stride[0] + remote_block_ids[idx] * stride[1])

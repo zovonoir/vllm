@@ -350,7 +350,7 @@ class MoRIIOConnectorScheduler:
             if remote_block_ids := params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host",
                                              "remote_port")):
-                    # If remote_blocks and num_external_tokens = 0, we have
+                    # If remote_blocks and num_external_tokens = 0, we
                     # a full prefix cache hit on the D worker. We need to call
                     # send_notif in _read_blocks to free the memory on the P.
 
@@ -1304,9 +1304,9 @@ class MoRIIOConnectorWorker:
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break
-        return  
+        # return  
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
-        logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
+        # logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
@@ -1315,14 +1315,24 @@ class MoRIIOConnectorWorker:
             stride = self.kv_caches[layer_name].stride()
             self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
-            for blkid in remote_block_ids:
-                logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
-                offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
-                offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
+            for idx,local_blkid in enumerate(local_block_ids):
+                logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{blkid}")
+                offset_k_local = self.kv_caches[layer_name].element_size() * (0 * stride[0] + local_blkid * stride[1])
+                offset_v_local = self.kv_caches[layer_name].element_size() * (1 * stride[0] + local_blkid * stride[1])
+                offset_k_remote = self.kv_caches[layer_name].element_size() * (0 * stride[0] + remote_block_ids[idx] * stride[1])
+                offset_v_remote = self.kv_caches[layer_name].element_size() * (1 * stride[0] + remote_block_ids[idx] * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
+            # for blkid in remote_block_ids:
+            #     logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
+            #     offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
+            #     offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
+            #     transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
+            #     # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
+            #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
+            #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
         logger.info(f"zovlog:=======> wait for all transfer complete!")
         # self.nixl_wrapper.waiting_for_transfer_complete()

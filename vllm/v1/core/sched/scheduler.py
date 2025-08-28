@@ -203,7 +203,7 @@ class Scheduler(SchedulerInterface):
         req_index = 0
         while req_index < len(self.running) and token_budget > 0:
             request = self.running[req_index]
-            logger.info(f"zovlog:========> got request in scheduler : {request.kv_transfer_params = }")
+            # logger.info(f"zovlog:========> got request in scheduler : {request.kv_transfer_params = }")
 
             num_new_tokens = (request.num_tokens_with_spec +
                               request.num_output_placeholders -
@@ -451,7 +451,7 @@ class Scheduler(SchedulerInterface):
                 if new_blocks is None:
                     # The request cannot be scheduled.
                     break
-                logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
+                # logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
                 # KVTransfer: the connector uses this info to determine
                 # if a load is needed. Note that
                 # This information is used to determine if a load is

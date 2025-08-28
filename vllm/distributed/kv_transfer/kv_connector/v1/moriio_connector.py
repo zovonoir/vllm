@@ -345,7 +345,7 @@ class MoRIIOConnectorScheduler:
         logger.info(
             f"moriioConnector update_state_after_alloc: "
             f"num_external_tokens={num_external_tokens}, kv_transfer_params={params},{params.get("do_remote_prefill") = },{params.get("remote_block_ids") = }")
-        logger.info(f"zovlog:0827--------------> call update_state_after_alloc blocks = {blocks}")
+        # logger.info(f"zovlog:0827--------------> call update_state_after_alloc blocks = {blocks}")
         if params is not None and params.get("do_remote_prefill"):
             if remote_block_ids := params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host",

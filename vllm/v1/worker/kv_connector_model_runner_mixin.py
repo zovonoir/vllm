@@ -96,7 +96,7 @@ class KVConnectorModelRunnerMixin:
         kv_connector = get_kv_transfer_group()
         assert isinstance(kv_connector, KVConnectorBase)
         assert scheduler_output.kv_connector_metadata is not None
-        logger.info(f"zovlog:=======> bind_connector_metadata {scheduler_output = }") # 到这里都是正常的
+        # logger.info(f"zovlog:=======> bind_connector_metadata {scheduler_output = }") # 到这里都是正常的
         kv_connector.bind_connector_metadata(
             scheduler_output.kv_connector_metadata)
 

@@ -1323,8 +1323,8 @@ class MoRIIOConnectorWorker:
                 offset_v_remote = self.kv_caches[layer_name].element_size() * (1 * stride[0] + remote_block_ids[idx] * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
+                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
+                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,0,0)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,0,0)
             # for blkid in remote_block_ids:
@@ -1337,7 +1337,7 @@ class MoRIIOConnectorWorker:
             #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
         logger.info(f"zovlog:=======> wait for all transfer complete!")
-        self.nixl_wrapper.waiting_for_transfer_complete()
+        # self.nixl_wrapper.waiting_for_transfer_complete()
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break

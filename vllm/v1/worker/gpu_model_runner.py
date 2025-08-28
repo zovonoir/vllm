@@ -689,7 +689,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
                            0,
                            torch.from_numpy(token_indices),
                            out=self.input_ids_cpu[:total_num_scheduled_tokens])
-        logger.info(f"zovlog:===============> in prepare inputs,{self.input_ids_cpu = },{total_num_scheduled_tokens = }")
+        # logger.info(f"zovlog:===============> in prepare inputs,{self.input_ids_cpu = },{total_num_scheduled_tokens = }")
         self.input_batch.block_table.compute_slot_mapping(
             req_indices, positions_np)
         self.input_batch.block_table.commit_slot_mapping(
@@ -704,7 +704,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
             num_scheduled_tokens)
 
         # Copy the tensors to the GPU.
-        logger.info(f"zovlog:===========> in prepare inputs,{self.input_ids = },{total_num_scheduled_tokens = }")
+        # logger.info(f"zovlog:===========> in prepare inputs,{self.input_ids = },{total_num_scheduled_tokens = }")
         self.input_ids[:total_num_scheduled_tokens].copy_(
             self.input_ids_cpu[:total_num_scheduled_tokens], non_blocking=True)
         if self.uses_mrope:
@@ -1483,7 +1483,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
          spec_decode_metadata, num_scheduled_tokens_np,
          spec_decode_common_attn_metadata) = (
              self._prepare_inputs(scheduler_output))
-        logger.info(f"zovlog:=================> scheduler_output.total_num_scheduled_tokens = {scheduler_output.total_num_scheduled_tokens},{self.input_ids = }")
+        # logger.info(f"zovlog:=================> scheduler_output.total_num_scheduled_tokens = {scheduler_output.total_num_scheduled_tokens},{self.input_ids = }")
         num_scheduled_tokens = scheduler_output.total_num_scheduled_tokens
         if (self.use_cuda_graph
                 and num_scheduled_tokens <= self.cudagraph_batch_sizes[-1]):
@@ -1557,7 +1557,7 @@ class GPUModelRunner(LoRAModelRunnerMixin, KVConnectorModelRunnerMixin):
 
         # Run the model.
         # Use persistent buffers for CUDA graphs.
-        logger.info(f"zovlog:====>{scheduler_output.finished_req_ids = },{self.input_batch.req_ids = }")
+        # logger.info(f"zovlog:====>{scheduler_output.finished_req_ids = },{self.input_batch.req_ids = }")
         with set_forward_context(
                 attn_metadata,
                 self.vllm_config,

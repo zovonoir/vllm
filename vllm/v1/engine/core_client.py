@@ -480,7 +480,7 @@ class MPClient(EngineCoreClient):
             self.pending_messages = deque[tuple[zmq.MessageTracker, Any]]()
 
             # Start monitoring engine core processes for unexpected failures
-            # self.start_engine_core_monitor()
+            self.start_engine_core_monitor()
 
             success = True
         finally:

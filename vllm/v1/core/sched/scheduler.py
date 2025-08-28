@@ -390,7 +390,7 @@ class Scheduler(SchedulerInterface):
                     # Total computed tokens (local + external).
                     num_computed_tokens = (num_new_local_computed_tokens +
                                            num_external_computed_tokens)
-                    logger.info(f"zovlog:--------> {new_computed_blocks = }, {num_new_local_computed_tokens = } ,{num_external_computed_tokens=}, {load_kv_async=} ,{num_computed_tokens = }")
+                    # logger.info(f"zovlog:--------> {new_computed_blocks = }, {num_new_local_computed_tokens = } ,{num_external_computed_tokens=}, {load_kv_async=} ,{num_computed_tokens = }")
                 # KVTransfer: WAITING reqs have num_computed_tokens > 0
                 # after async KV recvs are completed.
                 else:
@@ -1099,7 +1099,7 @@ class Scheduler(SchedulerInterface):
             return False, None
 
         (block_ids, ) = self.kv_cache_manager.get_block_ids(request.request_id)
-        logger.info(f"zovlog:---------> call _connector_finished, {block_ids = }")
+        # logger.info(f"zovlog:---------> call _connector_finished, {block_ids = }")
         return self.connector.request_finished(request, block_ids)
         # delay_free_blocks,param_dict = self.connector.request_finished(request, block_ids)
         # logger.info(f"zovlog:-----------> call _connector_finished, {param_dict['remote_block_ids'] = }")

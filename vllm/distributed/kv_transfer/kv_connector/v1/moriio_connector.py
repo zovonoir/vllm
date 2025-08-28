@@ -111,13 +111,13 @@ class MoRIIOWrapper():
     def read_remote_data(self,transfer_size_byte,local_offset = 0,remote_offset = 0):
         assert self.remote_memory_metadata is not None,"You have not register remote memory data!"
         assert self.local_memory_registered,"You have not register local memory data!"
-        transfer_status = self.moriio_engine.read(
-            self.local_memory_metadata, local_offset, 
-            self.remote_memory_metadata, remote_offset, 
-            transfer_size_byte,
-            self.moriio_engine.allocate_transfer_uid())
-        while transfer_status.Code() == StatusCode.INIT:
-            pass
+        # transfer_status = self.moriio_engine.read(
+        #     self.local_memory_metadata, local_offset, 
+        #     self.remote_memory_metadata, remote_offset, 
+        #     transfer_size_byte,
+        #     self.moriio_engine.allocate_transfer_uid())
+        # while transfer_status.Code() == StatusCode.INIT:
+        #     pass
         # self.transfer_status.append(transfer_status)
 
     def waiting_for_transfer_complete(self):

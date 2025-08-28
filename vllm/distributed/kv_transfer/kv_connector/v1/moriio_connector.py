@@ -1337,7 +1337,7 @@ class MoRIIOConnectorWorker:
             #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
         logger.info(f"zovlog:=======> wait for all transfer complete!")
-        # self.nixl_wrapper.waiting_for_transfer_complete()
+        self.nixl_wrapper.waiting_for_transfer_complete()
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break

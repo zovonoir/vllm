@@ -724,7 +724,7 @@ class MoRIIOConnectorWorker:
 
         # Handshake only with the remote TP rank that current local rank will
         # pull from. With homogeneous TP it happens to be the same rank_i.
-        logger.info(f"zovlog:--------------------> call _nixl_handshake {self.engine_id = },{self._tp_size = },{remote_tp_size = },{self.tp_rank = },{host = },{port = },")
+        # logger.info(f"zovlog:--------------------> call _nixl_handshake {self.engine_id = },{self._tp_size = },{remote_tp_size = },{self.tp_rank = },{host = },{port = },")
         tp_ratio = self._tp_size[self.engine_id] // remote_tp_size # _tp_size根据engine id 查询这个engine 的tp大小
         p_remote_rank = self.tp_rank // tp_ratio
         path = make_zmq_path("tcp", host, port + p_remote_rank)
@@ -872,7 +872,7 @@ class MoRIIOConnectorWorker:
         self.block_shape = block_shape
         self.kv_element_size = kv_elem_size
 
-        logger.info(f"Registering KV_Caches: {use_mla=}, {self.num_blocks=}, {block_shape=}, per_layer_kv_cache_shape={first_kv_cache.shape}")
+        # logger.info(f"Registering KV_Caches: {use_mla=}, {self.num_blocks=}, {block_shape=}, per_layer_kv_cache_shape={first_kv_cache.shape}")
 
         self.dst_num_blocks[self.engine_id] = self.num_blocks
         self.kv_caches = kv_caches # layer name to kv cache
@@ -895,7 +895,7 @@ class MoRIIOConnectorWorker:
         # to better exploit the memory layout (ie num_blocks is the first dim).
         kv_cache_key_list = kv_caches.keys()
         kv_cache_shape_list = [c.shape for c in kv_caches.values()]
-        logger.info(f"zovlog:======> {kv_cache_key_list = },{kv_cache_shape_list = }")
+        # logger.info(f"zovlog:======> {kv_cache_key_list = },{kv_cache_shape_list = }")
         for cache_or_caches in kv_caches.values():
         # 对每一个block ,都要以基址+长度注册一个protection domain
         # 由于_nixl_handshake_listener中无法访问到这些信息
@@ -1240,7 +1240,7 @@ class MoRIIOConnectorWorker:
             # logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
             return
         
-        logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
+        # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
         for req_id, meta in metadata.reqs_to_recv.items():
             # logger.info(f"zovlog:======> enter load kv for loop,{meta.remote_host = },{meta.remote_port = },{meta.local_block_ids = },{meta.remote_block_ids = },{meta.remote_engine_id = }")
             remote_engine_id = meta.remote_engine_id
@@ -1262,14 +1262,14 @@ class MoRIIOConnectorWorker:
             self._read_blocks_for_req(req_id, meta)
             # logger.info(f"zovlog:==============> read block finished ")
         # Start transfers for requests whose handshakes have now finished.
-        logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
+        # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
         
         while True:
             if self._ready_requests.empty() and not self.load_kv_flag: # 第一次进入,需要一直等待
                 # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
                 pass
             elif not self._ready_requests.empty() and self.load_kv_flag:
-                logger.info(f"zovlog:==============> {self._ready_requests.empty() = }!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }!!!!!!!!!!!!!!!!!!!!!!!!!!")
                 self._read_blocks_for_req(*self._ready_requests.get_nowait())
                 break
             else:
@@ -1323,8 +1323,8 @@ class MoRIIOConnectorWorker:
                 offset_v_remote = self.kv_caches[layer_name].element_size() * (1 * stride[0] + remote_block_ids[idx] * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
-                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
             # for blkid in remote_block_ids:
             #     logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
             #     offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])

@@ -114,14 +114,17 @@ class CoreEngineProcManager:
 
             # Start EngineCore in background process.
             local_dp_ranks.append(local_index)
-            assert 0, f"zovlog:=======target_fn = {target_fn}"
-            self.processes.append(
-                context.Process(target=target_fn,
-                                name=f"EngineCore_{global_index}",
-                                kwargs=common_kwargs | {
-                                    "dp_rank": global_index,
-                                    "local_dp_rank": local_index,
-                                }))
+            # assert 0, f"zovlog:=======target_fn = {target_fn}"
+            with open("engineproc.log",'w') as logfile:
+                self.processes.append(
+                    context.Process(target=target_fn,
+                                    name=f"EngineCore_{global_index}",
+                                    kwargs=common_kwargs | {
+                                        "dp_rank": global_index,
+                                        "local_dp_rank": local_index,
+                                    },
+                                    stdout = logfile
+                                    ))
 
         self._finalizer = weakref.finalize(self, shutdown, self.processes)
 

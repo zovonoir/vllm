@@ -685,7 +685,7 @@ class EngineCoreProc(EngineCore):
                 logger.exception("EngineCore failed to start.")
             else:
                 logger.exception("EngineCore encountered a fatal error.")
-                logger.info(f"zovlog:========> engine go die...............")
+                logger.error(f"zovlog:========> engine go die...............e = {e}")
                 engine_core._send_engine_dead()
             raise e
         finally:

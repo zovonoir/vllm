@@ -773,23 +773,23 @@ class AsyncMPClient(MPClient):
         async def process_outputs_socket():
             try:
                 while True:
-                    try:
-                        frames = await output_socket.recv_multipart(copy=False)
-                        resources.validate_alive(frames)
-                    except asyncio.CancelledError:
-                        logger.info(f"zovlog:0828==========> 在await output_socket.recv_multipart中捕获到了 cancelled 异常")
-                        outputs_queue.put_nowait(EngineDeadError())
-                        assert 0,"fasdfasdfasdfasdfasdf"
-                    try:
-                        outputs: EngineCoreOutputs = decoder.decode(frames)
-                        if outputs.utility_output:
-                            _process_utility_output(outputs.utility_output,
-                                                    utility_results)
-                            continue
-                    except asyncio.CancelledError:
-                        logger.info(f"zovlog:0828==========> 在decoder.decode(frames)中捕获到了 cancelled 异常")
-                        outputs_queue.put_nowait(EngineDeadError())
-                        assert 0,"fasdfasdfasdfasdfasdf"
+                    # try:
+                    frames = await output_socket.recv_multipart(copy=False)
+                    resources.validate_alive(frames)
+                    # except asyncio.CancelledError:
+                    logger.info(f"zovlog:0828==========> 在await output_socket.recv_multipart中捕获到了 cancelled 异常")
+                    outputs_queue.put_nowait(EngineDeadError())
+                    assert 0,"fasdfasdfasdfasdfasdf"
+                    # try:
+                    outputs: EngineCoreOutputs = decoder.decode(frames)
+                    if outputs.utility_output:
+                        _process_utility_output(outputs.utility_output,
+                                                utility_results)
+                        continue
+                    # except asyncio.CancelledError:
+                    #     logger.info(f"zovlog:0828==========> 在decoder.decode(frames)中捕获到了 cancelled 异常")
+                    #     outputs_queue.put_nowait(EngineDeadError())
+                    #     assert 0,"fasdfasdfasdfasdfasdf"
 
                     if output_handler is not None:
                         assert _self_ref is not None
@@ -797,14 +797,14 @@ class AsyncMPClient(MPClient):
                         if not _self:
                             # Client has been garbage collected, abort.
                             return
-                        try:
-                            await output_handler(_self, outputs)
-                        except asyncio.CancelledError:
-                            logger.info(f"zovlog:0828==========> 在outputhandler中捕获到了 cancelled 异常")
-                            outputs_queue.put_nowait(EngineDeadError())
-                            assert 0,"fasdfasdfasdfasdfasdf"
-                        except Exception as e:
-                            logger.info(f"zovlog:0828==========> got another exception = {e}")
+                        # try:
+                        await output_handler(_self, outputs)
+                        # except asyncio.CancelledError:
+                        #     logger.info(f"zovlog:0828==========> 在outputhandler中捕获到了 cancelled 异常")
+                        #     outputs_queue.put_nowait(EngineDeadError())
+                        #     assert 0,"fasdfasdfasdfasdfasdf"
+                        # except Exception as e:
+                        #     logger.info(f"zovlog:0828==========> got another exception = {e}")
 
                     if outputs.outputs or outputs.scheduler_stats:
                         outputs_queue.put_nowait(outputs)

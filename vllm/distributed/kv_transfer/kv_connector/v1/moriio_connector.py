@@ -359,19 +359,19 @@ class MoRIIOConnectorScheduler:
                     # 临时修改测试,如果local分配的和remote的长度不一样,那么就说明只需要load remote的后面几个
                     # Get unhashed blocks to pull from remote.
                     local_block_ids = blocks.get_block_ids()[0]
-                    logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
+                    # logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
                     assert len(local_block_ids) <= len(remote_block_ids)
                     # logger.error(f"zovlog:0827:====================> len(local_block_ids) = {len(local_block_ids)},len(remote_block_ids) = {len(remote_block_ids)}")
                     # logger.error(f"zovlog:0827:=====----> local_block_ids = {local_block_ids},remote_block_ids = {remote_block_ids}")
                     if len(local_block_ids) == len(remote_block_ids):
                         # 全部需要load,pass
-                        logger.info(f"zovlog:0827--------------> passed!")
+                        # logger.info(f"zovlog:0827--------------> passed!")
                         pass
                     else:
                         # 只需要load prefix cacheing 未命中的部分
                         local_block_ids = remote_block_ids[-len(local_block_ids):]
-                        logger.info(f"zovlog:0827--------------> len(local_block_ids) < len(remote_block_ids),{local_block_ids = }")
-                    logger.info(f"zovlog:0827 ------------> unhashed blocks = {local_block_ids}")
+                        # logger.info(f"zovlog:0827--------------> len(local_block_ids) < len(remote_block_ids),{local_block_ids = }")
+                    # logger.info(f"zovlog:0827 ------------> unhashed blocks = {local_block_ids}")
                     self._reqs_need_recv[request.request_id] = (
                         request, local_block_ids)
                 else:

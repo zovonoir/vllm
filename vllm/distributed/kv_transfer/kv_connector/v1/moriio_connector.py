@@ -314,7 +314,7 @@ class MoRIIOConnectorScheduler:
         if self.is_producer:
             return 0,False
         
-        logger.info(f"zovlog:==============> call get_num_new_matched_tokens,{request.kv_transfer_params = }")
+        # logger.info(f"zovlog:==============> call get_num_new_matched_tokens,{request.kv_transfer_params = }")
         params = request.kv_transfer_params
         logger.debug(
             "NIXLConnector get_num_new_matched_tokens: "

@@ -480,7 +480,7 @@ class MPClient(EngineCoreClient):
             self.pending_messages = deque[tuple[zmq.MessageTracker, Any]]()
 
             # Start monitoring engine core processes for unexpected failures
-            self.start_engine_core_monitor()
+            # self.start_engine_core_monitor()
 
             success = True
         finally:
@@ -776,21 +776,11 @@ class AsyncMPClient(MPClient):
                     # try:
                     frames = await output_socket.recv_multipart(copy=False)
                     resources.validate_alive(frames)
-                    # except asyncio.CancelledError:
-                    # logger.info(f"zovlog:0828==========> 在await output_socket.recv_multipart中捕获到了 cancelled 异常")
-                    # outputs_queue.put_nowait(EngineDeadError())
-                    # assert 0,"fasdfasdfasdfasdfasdf"
-                    # try:
                     outputs: EngineCoreOutputs = decoder.decode(frames)
                     if outputs.utility_output:
                         _process_utility_output(outputs.utility_output,
                                                 utility_results)
                         continue
-                    # except asyncio.CancelledError:
-                    #     logger.info(f"zovlog:0828==========> 在decoder.decode(frames)中捕获到了 cancelled 异常")
-                    #     outputs_queue.put_nowait(EngineDeadError())
-                    #     assert 0,"fasdfasdfasdfasdfasdf"
-
                     if output_handler is not None:
                         assert _self_ref is not None
                         _self = _self_ref()
@@ -799,13 +789,6 @@ class AsyncMPClient(MPClient):
                             return
                         # try:
                         await output_handler(_self, outputs)
-                        # except asyncio.CancelledError:
-                        #     logger.info(f"zovlog:0828==========> 在outputhandler中捕获到了 cancelled 异常")
-                        #     outputs_queue.put_nowait(EngineDeadError())
-                        #     assert 0,"fasdfasdfasdfasdfasdf"
-                        # except Exception as e:
-                        #     logger.info(f"zovlog:0828==========> got another exception = {e}")
-
                     if outputs.outputs or outputs.scheduler_stats:
                         outputs_queue.put_nowait(outputs)
             except Exception as e:
@@ -825,7 +808,7 @@ class AsyncMPClient(MPClient):
         # from this (run_output_handler) task to shut down the server.
         assert self.outputs_queue is not None
         outputs = await self.outputs_queue.get()
-        logger.info(f"zovlog:0828===============> get_output_async output = {outputs}")
+        # logger.info(f"zovlog:0828===============> get_output_async output = {outputs}")
         if isinstance(outputs, Exception):
             raise self._format_exception(outputs) from None
         return outputs

@@ -301,7 +301,7 @@ class KVCacheManager:
             self.req_to_block_hashes[request.request_id],
             num_tokens_to_cache,
         )
-        logger.info(f"zovlog:0827 alloc slots {request = },,{num_new_tokens = },{num_new_computed_tokens = },{new_computed_blocks = },{num_blocks_to_allocate = },{new_computed_block_list = },{new_blocks = }")
+        # logger.info(f"zovlog:0827 alloc slots {request = },,{num_new_tokens = },{num_new_computed_tokens = },{new_computed_blocks = },{num_blocks_to_allocate = },{new_computed_block_list = },{new_blocks = }")
         return KVCacheBlocks(new_blocks)
 
     def free(self, request: Request) -> None:

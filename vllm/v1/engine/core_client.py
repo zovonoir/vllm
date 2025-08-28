@@ -777,9 +777,9 @@ class AsyncMPClient(MPClient):
                     frames = await output_socket.recv_multipart(copy=False)
                     resources.validate_alive(frames)
                     # except asyncio.CancelledError:
-                    logger.info(f"zovlog:0828==========> 在await output_socket.recv_multipart中捕获到了 cancelled 异常")
-                    outputs_queue.put_nowait(EngineDeadError())
-                    assert 0,"fasdfasdfasdfasdfasdf"
+                    # logger.info(f"zovlog:0828==========> 在await output_socket.recv_multipart中捕获到了 cancelled 异常")
+                    # outputs_queue.put_nowait(EngineDeadError())
+                    # assert 0,"fasdfasdfasdfasdfasdf"
                     # try:
                     outputs: EngineCoreOutputs = decoder.decode(frames)
                     if outputs.utility_output:

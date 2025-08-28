@@ -23,7 +23,7 @@ export VLLM_ENABLE_DSV3=0
 export SAFETENSORS_FAST_GPU=1   
 # /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa9480d55605af694f39b081c455
 # {
- vllm serve /apps/data/models/Qwen3-32B  \
+ vllm serve /apps/data/models/models--Qwen--Qwen3-0.6B/snapshots/e6de91484c29aa9480d55605af694f39b081c455  \
     -tp 1 \
     --block-size 16 \
     --enforce-eager \

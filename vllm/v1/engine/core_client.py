@@ -791,6 +791,9 @@ class AsyncMPClient(MPClient):
                             await output_handler(_self, outputs)
                         except asyncio.CancelledError:
                             logger.info(f"zovlog:0828==========> 在outputhandler中捕获到了 cancelled 异常")
+                            outputs_queue.put_nowait(EngineDeadError())
+                            assert 0,"fasdfasdfasdfasdfasdf"
+                            
                         except Exception as e:
                             logger.info(f"zovlog:0828==========> got another exception = {e}")
 

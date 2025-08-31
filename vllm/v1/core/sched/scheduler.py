@@ -449,14 +449,15 @@ class Scheduler(SchedulerInterface):
                     delay_cache_blocks=load_kv_async,
                 )
                 if new_blocks is None:
+                    logger.info(f"zovlog:0831 ============> quit allocate_slots {new_blocks = }!!!!!!!!!!!!!!!!!!!!!!")
                     # The request cannot be scheduled.
                     break
-                # logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
+                logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
                 # KVTransfer: the connector uses this info to determine
                 # if a load is needed. Note that
                 # This information is used to determine if a load is
                 # needed for this request.
-                # logger.info(f"zovlog:============> prepare self.connector.update_state_after_alloc,{self.connector = },{request.kv_transfer_params = }")
+                logger.info(f"zovlog:============> prepare self.connector.update_state_after_alloc,{self.connector = },{request.kv_transfer_params = }")
                 if self.connector is not None:
                     self.connector.update_state_after_alloc(
                         request,
@@ -1099,7 +1100,7 @@ class Scheduler(SchedulerInterface):
             return False, None
 
         (block_ids, ) = self.kv_cache_manager.get_block_ids(request.request_id)
-        # logger.info(f"zovlog:---------> call _connector_finished, {block_ids = }")
+        logger.info(f"zovlog:---------> call _connector_finished, {block_ids = }")
         return self.connector.request_finished(request, block_ids)
         # delay_free_blocks,param_dict = self.connector.request_finished(request, block_ids)
         # logger.info(f"zovlog:-----------> call _connector_finished, {param_dict['remote_block_ids'] = }")

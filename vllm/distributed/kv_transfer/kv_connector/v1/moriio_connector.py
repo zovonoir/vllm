@@ -451,7 +451,7 @@ class MoRIIOConnectorScheduler:
             # Prefill request on remote. It will be read from D upon completion
             self._reqs_need_send[request.request_id] = time.perf_counter(
             ) + envs.VLLM_NIXL_ABORT_REQUEST_TIMEOUT
-        logger.info(f"zovlog:----------> call moriio connector request finished {computed_block_ids = }")
+        logger.info(f"zovlog0831:----------> call moriio connector request finished {computed_block_ids = }")
         return delay_free_blocks, dict(
             do_remote_prefill=True,
             do_remote_decode=False,

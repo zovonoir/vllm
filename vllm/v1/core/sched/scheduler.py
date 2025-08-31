@@ -756,6 +756,7 @@ class Scheduler(SchedulerInterface):
         scheduler_output: SchedulerOutput,
         model_runner_output: ModelRunnerOutput,
     ) -> dict[int, EngineCoreOutputs]:
+        logger.info(f"zovlog0831:------------->call update_from_output,{model_runner_output = }")
         sampled_token_ids = model_runner_output.sampled_token_ids
         spec_token_ids = model_runner_output.spec_token_ids
         logprobs = model_runner_output.logprobs
@@ -890,6 +891,7 @@ class Scheduler(SchedulerInterface):
             self.waiting.remove_requests(stopped_preempted_reqs)
 
         # KV Connector: update state for finished KV Transfers.
+
         if model_runner_output.kv_connector_output:
             self._update_from_kv_xfer_finished(
                 model_runner_output.kv_connector_output)
@@ -1102,9 +1104,6 @@ class Scheduler(SchedulerInterface):
         (block_ids, ) = self.kv_cache_manager.get_block_ids(request.request_id)
         logger.info(f"zovlog:---------> call _connector_finished, {block_ids = }")
         return self.connector.request_finished(request, block_ids)
-        # delay_free_blocks,param_dict = self.connector.request_finished(request, block_ids)
-        # logger.info(f"zovlog:-----------> call _connector_finished, {param_dict['remote_block_ids'] = }")
-        # return delay_free_blocks,param_dict
 
     def _update_waiting_for_remote_kv(self, request: Request) -> bool:
         """

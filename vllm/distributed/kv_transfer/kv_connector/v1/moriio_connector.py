@@ -77,9 +77,14 @@ class MoRIIOWrapper():
         self.local_memory_metadata = None
         self.transfer_status = []
         self.remote_engine_ip = None
-        self.remote_handshake_port = None # P->D 发送read完毕的reqid
-        self.local_handshake_port = None # D<-P 接收read完毕的reqid
-        self.waiting_for_remote_read_complete_thread = None # P 节点需要在D节点read完成之后才能安全释放blockid,因此这里管理
+        self.notify_port = None
+        self.notify_sock = None
+        self.lock = threading.Lock()
+        self.done_req_ids = []
+        self.notify_thread = None
+        # self.remote_handshake_port = None # P->D 发送read完毕的reqid
+        # self.local_handshake_port = None # D<-P 接收read完毕的reqid
+        # self.waiting_for_remote_read_complete_thread = None # P 节点需要在D节点read完成之后才能安全释放blockid,因此这里管理
         
 
     def set_moriio_engine(self,moriio_engine):
@@ -129,21 +134,52 @@ class MoRIIOWrapper():
         #     pass
         self.transfer_status.append(transfer_status)
 
-    # def waiting_for_read_complete(self):
-    #     while self.transfer_status:
-    #         status = self.transfer_status.pop(0)
-    #         while status.Code() == StatusCode.INIT:
-    #             pass
-    # def async_wait_for_remote_read_complete(self):
-    #     assert self.remote_engine_ip is not None,"remote engine ip is None!"
-    #     assert self.remote_engine_port is not None,"remote engine port is not None!"
+    def waiting_for_read_complete(self):
+        while self.transfer_status:
+            status = self.transfer_status.pop(0)
+            while status.Code() == StatusCode.INIT:
+                pass
 
-    #     def _async_wait():
+    def async_wait_D_finish_reqid(self):
+        # 仅P节点执行
+        assert self.remote_engine_ip is not None,"remote engine ip is None!"
+        assert self.notify_port is not None,"remote engine port is not None!"
 
+        def _async_wait():
+            host = "*"
+            path = make_zmq_path("tcp", host, self.notify_port)
+            with zmq_ctx(zmq.ROUTER, path) as sock:
+                print(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!!")
+                while True:
+                    identity, msg = sock.recv_multipart()
+                    if not msg.startswith("cmpl"):
+                        assert 0,"P instance received error req id data"
+                    with self.lock:
+                        self.done_req_ids.append(msg)
+        self.notify_thread = threading.Thread(target=_async_wait,daemon=True)
+        self.notify_thread.start()
+        
+    
+    def send_notify_to_P(self,req_ids):
+        if not isinstance(req_ids,list):
+            req_ids_ = list(req_ids)
+        else:
+            req_ids_ = req_ids
 
-    # def pop_done_transfer_req(self,req_id):
-    #     def _task_thread():
-    #         with 
+        host = self.remote_engine_ip
+        path = make_zmq_path("tcp", host, self.notify_port)
+        with zmq_ctx(zmq.ROUTER, path) as sock:
+            for req in req_ids_:
+                sock.send(req)
+    
+    def pop_finished_req_ids(self):
+        with self.lock:
+            done_send = set(self.done_req_ids)
+            self.done_req_ids = []
+        return done_send
+
+    
+
                 
 
 class MoRIIOAgentMetadata(
@@ -470,7 +506,7 @@ class MoRIIOConnectorScheduler:
             # Prefill request on remote. It will be read from D upon completion
             self._reqs_need_send[request.request_id] = time.perf_counter(
             ) + envs.VLLM_NIXL_ABORT_REQUEST_TIMEOUT
-        logger.info(f"zovlog0831:----------> call moriio connector request finished {computed_block_ids = }")
+        # logger.info(f"zovlog0831:----------> call moriio connector request finished {computed_block_ids = }")
         return delay_free_blocks, dict(
             do_remote_prefill=True,
             do_remote_decode=False,
@@ -508,6 +544,7 @@ class MoRIIOConnectorWorker:
         self.proxy_ping_port = int(self.kv_transfer_config.kv_connector_extra_config["proxy_ping_port"]) # P/D节点将自身信息上报至这个port
         self.http_port = int(self.kv_transfer_config.kv_connector_extra_config['http_port']) # 用于接收request的port
         self.handshake_port = int(self.kv_transfer_config.kv_connector_extra_config['handshake_port']) # 用于handshake的本地port,remote的port会在运行中从proxy获取
+        self.notify_port = int(self.kv_transfer_config.kv_connector_extra_config['notify_port'])
         # self.local_metadata_port = int(self.kv_transfer_config.kv_connector_extra_config['metadata_port'])
         '''
         ping: local_ip:local_ping_port -> proxy_ip:proxy_ping_port
@@ -544,6 +581,7 @@ class MoRIIOConnectorWorker:
         self.nixl_wrapper = MoRIIOWrapper()
         self.nixl_wrapper.set_moriio_engine(self.moriio_engine)
         self.nixl_wrapper.set_backend_type(BackendType.RDMA)
+        self.nixl_wrapper.notify_port = self.notify_port
         self.local_kv_cache_metadata = []
         self.local_kv_cache_size = []
         self.layer_name_to_local_kv_cache_metadata:dict[str, List[Any]] = dict()
@@ -1195,13 +1233,21 @@ class MoRIIOConnectorWorker:
         #         break
         #     del self._reqs_to_send[req_id]
         #     done_sending.add(req_id)
-        done_sending, done_recving = set(), set()
+        # done_sending, done_recving = set(), set()
         # done_recving = set()
         # done_sending = set(self.done_sending_reqs)
         # # since python<=3.13 has GIL,so now I just ignore multithread safty
         # for val in done_sending:
         #     done_sending.remove(val)
         
+        if self.is_producer:
+            logger.info(f"zovog:======> call get_finished,my role = P")
+            done_sending = self.nixl_wrapper.pop_finished_req_ids()
+            done_recving = set()
+            logger.info(f"zovog:======> call get_finished,my role = P done_sending = {done_sending}")
+        else:
+            logger.info(f"zovog:======> call get_finished,my role = D")
+            done_sending, done_recving = set(), set()
         return done_sending, done_recving
 
     def _get_new_notifs(self) -> set[str]:
@@ -1258,7 +1304,8 @@ class MoRIIOConnectorWorker:
         We check for these trnxs to complete in each step().
         """
         if self.is_producer:
-            logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+            self.nixl_wrapper.async_wait_D_finish_reqid()
+            logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
             return
         
         # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
@@ -1302,6 +1349,8 @@ class MoRIIOConnectorWorker:
 
         # Add to requests that are waiting to be read and track expiration.
         self._reqs_to_send.update(metadata.reqs_to_send)
+        logger.info(f"zovlog: send {req_id} to notify ")
+        self.nixl_wrapper.send_notify_to_P(req_id)
 
     def _read_blocks_for_req(self, req_id: str, meta: ReqMeta):
         logger.debug(
@@ -1319,7 +1368,7 @@ class MoRIIOConnectorWorker:
                      remote_block_ids: list[int], 
                      dst_engine_id: str,
                      request_id: str):
-        logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
+        # logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # return
         # 直接开始传输
         # 每一层的对应blkid都需要传输

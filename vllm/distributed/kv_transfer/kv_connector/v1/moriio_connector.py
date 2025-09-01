@@ -170,7 +170,7 @@ class MoRIIOWrapper():
 
         host = self.remote_engine_ip
         path = make_zmq_path("tcp", host, self.notify_port)
-        with zmq_ctx(zmq.ROUTER, path) as sock:
+        with zmq_ctx(zmq.DEALER, path) as sock:
             for req in req_ids_:
                 sock.send(req)
     

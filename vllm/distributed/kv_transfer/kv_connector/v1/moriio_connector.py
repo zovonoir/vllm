@@ -172,11 +172,11 @@ class MoRIIOWrapper():
             req_ids_ = [req_ids]
         else:
             req_ids_ = req_ids
-
+        path = make_zmq_path("tcp", host, self.notify_port)
         if self.sock is None:
             self.ctx = zmq.Context()
             host = self.remote_engine_ip
-            path = make_zmq_path("tcp", host, self.notify_port)
+            # path = make_zmq_path("tcp", host, self.notify_port)
             self.sock = make_zmq_socket(ctx=self.ctx,
                               path=path,
                               socket_type=zmq.DEALER,

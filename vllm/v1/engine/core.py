@@ -274,7 +274,7 @@ class EngineCore:
         model_output = self.execute_model_with_error_logging(
             self.model_executor.execute_model,  # type: ignore
             scheduler_output)
-        logger.info(f"zovlog0831: quit model forward,check is none {scheduler_output = },{model_output = }")
+        # logger.info(f"zovlog0831: quit model forward,check is none {scheduler_output = },{model_output = }")
         engine_core_outputs = self.scheduler.update_from_output(
             scheduler_output, model_output)  # type: ignore
         # logger.info(f"zovlog:++++++> {engine_core_outputs = }")

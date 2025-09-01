@@ -144,7 +144,8 @@ class MoRIIOWrapper():
         # 仅P节点执行
         # assert self.remote_engine_ip is not None,"remote engine ip is None!"
         assert self.notify_port is not None,"remote engine port is not None!"
-
+        if self.notify_thread is not None:
+            return
         def _async_wait():
             host = "*"
             path = make_zmq_path("tcp", host, self.notify_port)

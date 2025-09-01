@@ -452,7 +452,7 @@ class Scheduler(SchedulerInterface):
                     logger.info(f"zovlog:0831 ============> quit allocate_slots {new_blocks = }!!!!!!!!!!!!!!!!!!!!!!")
                     # The request cannot be scheduled.
                     break
-                logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
+                # logger.info(f"zovlog:0827 ============> quit allocate_slots {new_blocks = }")
                 # KVTransfer: the connector uses this info to determine
                 # if a load is needed. Note that
                 # This information is used to determine if a load is
@@ -1102,7 +1102,7 @@ class Scheduler(SchedulerInterface):
             return False, None
 
         (block_ids, ) = self.kv_cache_manager.get_block_ids(request.request_id)
-        logger.info(f"zovlog:---------> call _connector_finished, {block_ids = }")
+        logger.info(f"zovlog:---------> call _connector_finished function, {len(block_ids) = }")
         return self.connector.request_finished(request, block_ids)
 
     def _update_waiting_for_remote_kv(self, request: Request) -> bool:

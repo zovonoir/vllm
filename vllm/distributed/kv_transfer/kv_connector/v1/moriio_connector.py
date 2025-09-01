@@ -1352,8 +1352,9 @@ class MoRIIOConnectorWorker:
 
         # Add to requests that are waiting to be read and track expiration.
         self._reqs_to_send.update(metadata.reqs_to_send)
-        logger.info(f"zovlog: send {req_id} to notify ")
-        self.nixl_wrapper.send_notify_to_P(req_id)
+        for req_id, _ in metadata.reqs_to_recv.items():
+            logger.info(f"zovlog: send {req_id} to notify ")
+            self.nixl_wrapper.send_notify_to_P(req_id)
 
     def _read_blocks_for_req(self, req_id: str, meta: ReqMeta):
         logger.debug(

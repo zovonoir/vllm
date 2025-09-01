@@ -82,6 +82,7 @@ class MoRIIOWrapper():
         self.lock = threading.Lock()
         self.done_req_ids = []
         self.notify_thread = None
+        self.sock = None
         # self.remote_handshake_port = None # P->D 发送read完毕的reqid
         # self.local_handshake_port = None # D<-P 接收read完毕的reqid
         # self.waiting_for_remote_read_complete_thread = None # P 节点需要在D节点read完成之后才能安全释放blockid,因此这里管理
@@ -171,14 +172,16 @@ class MoRIIOWrapper():
         else:
             req_ids_ = req_ids
 
-        host = self.remote_engine_ip
-        path = make_zmq_path("tcp", host, self.notify_port)
-        with zmq_ctx(zmq.DEALER, path) as sock:
-            for req in req_ids_:
-                assert isinstance(req,str)
-                print(f"zovlog: sending notify to P...req_ids_ = {req_ids_},path = {path}")
-                sock.send(req.encode("utf-8"))
-                print(f"zovlog: sending notify to P finished")
+        if self.sock is None:
+            host = self.remote_engine_ip
+            path = make_zmq_path("tcp", host, self.notify_port)
+            self.sock = zmq_ctx(zmq.DEALER, path)
+            # with zmq_ctx(zmq.DEALER, path) as sock:
+        for req in req_ids_:
+            assert isinstance(req,str)
+            print(f"zovlog: sending notify to P...req_ids_ = {req_ids_},path = {path}")
+            self.sock.send(req.encode("utf-8"))
+            print(f"zovlog: sending notify to P finished")
     
     def pop_finished_req_ids(self):
         # P 节点调用

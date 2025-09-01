@@ -47,6 +47,7 @@ Transfer = tuple[int, float]  # (xfer_handle, start_time)
 EngineId = str
 ReqId = str
 GET_META_MSG = b"get_meta_msg"
+POP_DONE_RECV = b"pop_done_recv"
 OVER = b"OVER"
 
 logger = init_logger(__name__)
@@ -75,6 +76,11 @@ class MoRIIOWrapper():
         self.local_memory_registered = False
         self.local_memory_metadata = None
         self.transfer_status = []
+        self.remote_engine_ip = None
+        self.remote_handshake_port = None # P->D 发送read完毕的reqid
+        self.local_handshake_port = None # D<-P 接收read完毕的reqid
+        self.waiting_for_remote_read_complete_thread = None # P 节点需要在D节点read完成之后才能安全释放blockid,因此这里管理
+        
 
     def set_moriio_engine(self,moriio_engine):
         assert moriio_engine is not None,"You Cannot pass None engine to MoRIIOWrapper!"
@@ -111,6 +117,9 @@ class MoRIIOWrapper():
     def read_remote_data(self,transfer_size_byte,local_offset = 0,remote_offset = 0):
         assert self.remote_memory_metadata is not None,"You have not register remote memory data!"
         assert self.local_memory_registered,"You have not register local memory data!"
+        # assert self.remote_engine_ip is not None
+        # assert self.remote_engine_port is not None
+
         transfer_status = self.moriio_engine.read(
             self.local_memory_metadata, local_offset, 
             self.remote_memory_metadata, remote_offset, 
@@ -120,11 +129,21 @@ class MoRIIOWrapper():
         #     pass
         self.transfer_status.append(transfer_status)
 
-    def waiting_for_transfer_complete(self):
-        while self.transfer_status:
-            status = self.transfer_status.pop(0)
-            while status.Code() == StatusCode.INIT:
-                pass
+    # def waiting_for_read_complete(self):
+    #     while self.transfer_status:
+    #         status = self.transfer_status.pop(0)
+    #         while status.Code() == StatusCode.INIT:
+    #             pass
+    # def async_wait_for_remote_read_complete(self):
+    #     assert self.remote_engine_ip is not None,"remote engine ip is None!"
+    #     assert self.remote_engine_port is not None,"remote engine port is not None!"
+
+    #     def _async_wait():
+
+
+    # def pop_done_transfer_req(self,req_id):
+    #     def _task_thread():
+    #         with 
                 
 
 class MoRIIOAgentMetadata(
@@ -540,6 +559,9 @@ class MoRIIOConnectorWorker:
         self.block_shape = None
         self.kv_element_size = 0
 
+        self.done_sending_reqs = []
+        self.done_send_threads = []
+
         # Map of engine_id -> {rank0: agent_name0, rank1: agent_name1..}.
         self._remote_agents: dict[EngineId, dict[int, str]] = defaultdict(dict)
 
@@ -636,7 +658,6 @@ class MoRIIOConnectorWorker:
             try:
                 http_request_address = "http://" + self.request_address +"/v1/completions"
                 data = {"type":"register","role":"P" if self.is_producer else "D","index":str(index),"request_address":http_request_address,"handshake_port":self.handshake_port}
-                # print(f"zovlog:====>trying send {index}th data to proxy...{(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)},,,,{data = }")
                 
                 sock.send(msgpack.dumps(data))
                 # print(f"zovlog:====>Sent: {data}")
@@ -689,7 +710,7 @@ class MoRIIOConnectorWorker:
             ready_event.set()
             while True:
                 identity, msg = sock.recv_multipart()
-                if msg != GET_META_MSG:
+                if msg != GET_META_MSG and msg != POP_DONE_RECV:
                     logger.warning("Connection listener got unexpected message %s", msg)
                     assert 0,"handhsake failed!!!!!!!!!!"
                 elif msg == GET_META_MSG:
@@ -703,6 +724,9 @@ class MoRIIOConnectorWorker:
                     buf = pickle.dumps(layer_name_to_local_kv_cache_metadata)
                     sock.send_multipart((identity, b"", buf))
                     # logger.info(f"zovlog:=====> P all sent.............. {layer_name_to_local_kv_cache_metadata = }")
+                elif msg == POP_DONE_RECV:
+                    _, req_id = sock.recv_multipart()
+                    
                 else:
                     pass
 
@@ -754,6 +778,9 @@ class MoRIIOConnectorWorker:
 
             # Register Remote agent.
             # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
+            self.nixl_wrapper.remote_handshake_port = port + p_remote_rank
+            self.nixl_wrapper.remote_engine_ip = host
+            self.nixl_wrapper.local_handshake_port
             remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
             remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             if len(self.local_kv_cache_metadata) > 0:
@@ -763,15 +790,6 @@ class MoRIIOConnectorWorker:
                 logger.warning(f"zovlog:=======> {len(self.remote_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
                 self.remote_kv_cache_metadata = []
 
-
-            # while True:
-            #     received_frame = sock.recv_multipart()
-            #     if len(received_frame) != 2 or received_frame[0] != b"":
-            #         assert 0,f"Unexpected frame! {received_frame = }"
-            #     mem_metadata = received_frame[1]
-            #     if mem_metadata == OVER:
-            #         break
-            #     self.remote_kv_cache_metadata.append(MemoryDesc.unpack(mem_metadata))
             logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
             received_frame = sock.recv_multipart()
             # logger.info(f"zovlog:==========> D instance received. received_frame {received_frame = }")
@@ -825,9 +843,9 @@ class MoRIIOConnectorWorker:
 
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         """Register the KV Cache data in nixl."""
-        """只会在llmengine初始化的时候调用一次,注册所有已经分配的kvcache"""
+        """只会在llmengine初始化的时候调用一次,注册所有已经分配的kvcache pool"""
         for _,t in kv_caches.items():
-            t = t.zero_()
+            t = t.zero_() # for debug,not necessary
             # logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
         # kv_caches,KEY layer name,VALUE cache tensor,(2,numblocks,blocksize,headnum,headsize)
         _, first_kv_cache = next(iter(kv_caches.items()))
@@ -1178,7 +1196,12 @@ class MoRIIOConnectorWorker:
         #     del self._reqs_to_send[req_id]
         #     done_sending.add(req_id)
         done_sending, done_recving = set(), set()
-
+        # done_recving = set()
+        # done_sending = set(self.done_sending_reqs)
+        # # since python<=3.13 has GIL,so now I just ignore multithread safty
+        # for val in done_sending:
+        #     done_sending.remove(val)
+        
         return done_sending, done_recving
 
     def _get_new_notifs(self) -> set[str]:
@@ -1202,16 +1225,14 @@ class MoRIIOConnectorWorker:
         #             del self._reqs_to_send[req_id]
         # return notified_req_ids
 
-    def _pop_done_transfers(
-            self, transfers: dict[str, list[tuple[int, float]]]) -> set[str]:
+    # def _pop_done_transfers(
+    #         self, transfers: dict[str, list[tuple[int, float]]]) -> set[str]:
+    def _pop_done_transfers(self, done_req_ids) -> set[str]:
         """
-        Pop completed xfers by checking for DONE state.
-        Args:
-            transfers: dict of req_id -> list[running_xfer]
-        Returns:
-            set of req_ids that have all done xfers
+        传输完之后,需要发送传输回执至P节点,
         """
-        done_req_ids: set[str] = set()
+        # done_req_ids: set[str] = set()
+
         '''
         for req_id, handles in list(transfers.items()):
             in_progress = False
@@ -1230,14 +1251,14 @@ class MoRIIOConnectorWorker:
                 del transfers[req_id]
         '''
         return done_req_ids
-
+    
     def start_load_kv(self, metadata: MoRIIOConnectorMetadata):
         """
         Start loading by triggering non-blocking nixl_xfer.
         We check for these trnxs to complete in each step().
         """
         if self.is_producer:
-            # logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
+            logger.info(f"zovlog:====>moriio start load kv,but I am producer,quit....,{metadata.reqs_to_recv.items()=},{self._remote_agents=}")
             return
         
         # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
@@ -1263,7 +1284,8 @@ class MoRIIOConnectorWorker:
             # logger.info(f"zovlog:==============> read block finished ")
         # Start transfers for requests whose handshakes have now finished.
         # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
-        
+        # self._pop_done_transfers(req_id)
+
         while True:
             if self._ready_requests.empty() and not self.load_kv_flag: # 第一次进入,需要一直等待
                 # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
@@ -1297,7 +1319,7 @@ class MoRIIOConnectorWorker:
                      remote_block_ids: list[int], 
                      dst_engine_id: str,
                      request_id: str):
-        # logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
+        logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # return
         # 直接开始传输
         # 每一层的对应blkid都需要传输
@@ -1337,7 +1359,7 @@ class MoRIIOConnectorWorker:
             #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
         logger.info(f"zovlog:=======> wait for all transfer complete!")
-        # self.nixl_wrapper.waiting_for_transfer_complete()
+        # self.nixl_wrapper.waiting_for_read_complete()
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break

@@ -153,6 +153,7 @@ class MoRIIOWrapper():
                 print(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!!")
                 while True:
                     identity, msg = sock.recv_multipart()
+                    print(f"zovlog:P received msg!!!!!!! msg = {msg}")
                     if not msg.startswith("cmpl"):
                         assert 0,"P instance received error req id data"
                     with self.lock:
@@ -174,9 +175,11 @@ class MoRIIOWrapper():
         with zmq_ctx(zmq.DEALER, path) as sock:
             for req in req_ids_:
                 assert isinstance(req,str)
+                print(f"zovlog: sending notify to P...req_ids_ = {req_ids_}")
                 sock.send(req.encode("utf-8"))
     
     def pop_finished_req_ids(self):
+        # P 节点调用
         with self.lock:
             done_send = set(self.done_req_ids)
             self.done_req_ids = []
@@ -1308,7 +1311,7 @@ class MoRIIOConnectorWorker:
         """
         if self.is_producer:
             self.nixl_wrapper.async_wait_D_finish_reqid()
-            logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
+            # logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
             return
         
         # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")

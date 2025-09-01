@@ -756,7 +756,7 @@ class Scheduler(SchedulerInterface):
         scheduler_output: SchedulerOutput,
         model_runner_output: ModelRunnerOutput,
     ) -> dict[int, EngineCoreOutputs]:
-        logger.info(f"zovlog0831:------------->call update_from_output,{model_runner_output = }")
+        # logger.info(f"zovlog0831:------------->call update_from_output,{model_runner_output = }")
         sampled_token_ids = model_runner_output.sampled_token_ids
         spec_token_ids = model_runner_output.spec_token_ids
         logprobs = model_runner_output.logprobs

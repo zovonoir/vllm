@@ -150,7 +150,7 @@ class MoRIIOWrapper():
             host = "*"
             path = make_zmq_path("tcp", host, self.notify_port)
             with zmq_ctx(zmq.ROUTER, path) as sock:
-                print(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!!")
+                print(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!! listen:{path}")
                 while True:
                     identity, msg = sock.recv_multipart()
                     print(f"zovlog:P received msg!!!!!!! msg = {msg}")
@@ -167,7 +167,7 @@ class MoRIIOWrapper():
         assert self.remote_engine_ip is not None,"remote engine ip is None!"
         assert self.notify_port is not None,"remote engine port is not None!"
         if not isinstance(req_ids,list):
-            req_ids_ = list(req_ids)
+            req_ids_ = [req_ids]
         else:
             req_ids_ = req_ids
 
@@ -176,8 +176,9 @@ class MoRIIOWrapper():
         with zmq_ctx(zmq.DEALER, path) as sock:
             for req in req_ids_:
                 assert isinstance(req,str)
-                print(f"zovlog: sending notify to P...req_ids_ = {req_ids_}")
+                print(f"zovlog: sending notify to P...req_ids_ = {req_ids_},path = {path}")
                 sock.send(req.encode("utf-8"))
+                print(f"zovlog: sending notify to P finished")
     
     def pop_finished_req_ids(self):
         # P 节点调用
@@ -1253,7 +1254,7 @@ class MoRIIOConnectorWorker:
             done_recving = set()
             logger.info(f"zovog:======> call get_finished,my role = P done_sending = {done_sending}")
         else:
-            logger.info(f"zovog:======> call get_finished,my role = D")
+            # logger.info(f"zovog:======> call get_finished,my role = D")
             done_sending, done_recving = set(), set()
         return done_sending, done_recving
 

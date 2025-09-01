@@ -142,7 +142,7 @@ class MoRIIOWrapper():
 
     def async_wait_D_finish_reqid(self):
         # 仅P节点执行
-        assert self.remote_engine_ip is not None,"remote engine ip is None!"
+        # assert self.remote_engine_ip is not None,"remote engine ip is None!"
         assert self.notify_port is not None,"remote engine port is not None!"
 
         def _async_wait():
@@ -161,6 +161,8 @@ class MoRIIOWrapper():
         
     
     def send_notify_to_P(self,req_ids):
+        assert self.remote_engine_ip is not None,"remote engine ip is None!"
+        assert self.notify_port is not None,"remote engine port is not None!"
         if not isinstance(req_ids,list):
             req_ids_ = list(req_ids)
         else:
@@ -816,9 +818,8 @@ class MoRIIOConnectorWorker:
 
             # Register Remote agent.
             # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
-            self.nixl_wrapper.remote_handshake_port = port + p_remote_rank
+            # self.nixl_wrapper.remote_handshake_port = port + p_remote_rank
             self.nixl_wrapper.remote_engine_ip = host
-            self.nixl_wrapper.local_handshake_port
             remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
             remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             if len(self.local_kv_cache_metadata) > 0:
@@ -1304,8 +1305,8 @@ class MoRIIOConnectorWorker:
         We check for these trnxs to complete in each step().
         """
         if self.is_producer:
-            # self.nixl_wrapper.async_wait_D_finish_reqid()
-            # logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
+            self.nixl_wrapper.async_wait_D_finish_reqid()
+            logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
             return
         
         # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")

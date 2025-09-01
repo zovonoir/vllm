@@ -172,7 +172,8 @@ class MoRIIOWrapper():
         path = make_zmq_path("tcp", host, self.notify_port)
         with zmq_ctx(zmq.DEALER, path) as sock:
             for req in req_ids_:
-                sock.send(req)
+                assert isinstance(req,str)
+                sock.send(req.encode("utf-8"))
     
     def pop_finished_req_ids(self):
         with self.lock:

@@ -439,7 +439,7 @@ class Scheduler(SchedulerInterface):
                         if num_new_tokens == 0:
                             # The request cannot be scheduled.
                             break
-                logger.info(f"zovlog:0827 prepare allocate_slots {request = },{num_new_tokens = },{num_external_computed_tokens = },{num_new_local_computed_tokens = },{new_computed_blocks = },{self.num_lookahead_tokens = }")
+                # logger.info(f"zovlog:0827 prepare allocate_slots {request = },{num_new_tokens = },{num_external_computed_tokens = },{num_new_local_computed_tokens = },{new_computed_blocks = },{self.num_lookahead_tokens = }")
                 new_blocks = self.kv_cache_manager.allocate_slots(
                     request,
                     num_new_tokens + num_external_computed_tokens,

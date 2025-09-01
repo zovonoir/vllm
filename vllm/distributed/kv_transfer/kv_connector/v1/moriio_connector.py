@@ -163,6 +163,7 @@ class MoRIIOWrapper():
         
     
     def send_notify_to_P(self,req_ids):
+        print(f"zovlog: enter sending notify to P...req_ids = {req_ids}")
         assert self.remote_engine_ip is not None,"remote engine ip is None!"
         assert self.notify_port is not None,"remote engine port is not None!"
         if not isinstance(req_ids,list):

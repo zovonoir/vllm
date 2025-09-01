@@ -755,7 +755,7 @@ class MoRIIOConnectorWorker:
                     # P instance send engine desc?
                     # 既然req数据中能够包含engine id,那么同样可以不包含P节点自身的desc,直接写入即可
                     # 但是现在暂时采用发送的方式
-                    logger.info(f"zovlog:=======> P instance handshake msg received!!!!!!!")
+                    logger.info(f"zovlog:=======> P instance handshake msg received!!!!!!!,identity = {identity}")
                     sock.send_multipart((identity, b"", encoded_data)) # send local mori io engine meta data
 
                     # now we send tensor meta data for each block
@@ -1304,8 +1304,8 @@ class MoRIIOConnectorWorker:
         We check for these trnxs to complete in each step().
         """
         if self.is_producer:
-            self.nixl_wrapper.async_wait_D_finish_reqid()
-            logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
+            # self.nixl_wrapper.async_wait_D_finish_reqid()
+            # logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
             return
         
         # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")

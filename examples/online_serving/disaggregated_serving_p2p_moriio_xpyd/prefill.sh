@@ -26,7 +26,6 @@ export SAFETENSORS_FAST_GPU=1
  vllm serve /apps/data/models/Qwen3-32B  \
     -tp 1 \
     --block-size 16 \
-    --enforce-eager \
     --max_seq_len_to_capture 6144 \
     --max-num-batched-tokens 6144 \
     --host 0.0.0.0 \

@@ -151,11 +151,11 @@ class MoRIIOWrapper():
             host = "*"
             path = make_zmq_path("tcp", host, self.notify_port)
             with zmq_ctx(zmq.ROUTER, path) as sock:
-                print(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!! listen:{path}")
+                logger.info(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!! listen:{path}")
                 while True:
                     identity, msg = sock.recv_multipart()
                     msg = msg.decode("UTF-8")
-                    print(f"zovlog:P received msg!!!!!!! msg = {msg}")
+                    logger.info(f"zovlog:P received msg!!!!!!! msg = {msg}")
                     if not msg.startswith("cmpl"):
                         assert 0,"P instance received error req id data"
                     with self.lock:
@@ -165,7 +165,7 @@ class MoRIIOWrapper():
         
     
     def send_notify_to_P(self,req_ids):
-        print(f"zovlog: enter sending notify to P...req_ids = {req_ids}")
+        logger.info(f"zovlog: enter sending notify to P...req_ids = {req_ids}")
         assert self.remote_engine_ip is not None,"remote engine ip is None!"
         assert self.notify_port is not None,"remote engine port is not None!"
         if not isinstance(req_ids,list):
@@ -184,9 +184,9 @@ class MoRIIOWrapper():
             # with zmq_ctx(zmq.DEALER, path) as sock:
         for req in req_ids_:
             assert isinstance(req,str)
-            print(f"zovlog: sending notify to P...req_ids_ = {req_ids_},path = {path}")
+            # print(f"zovlog: sending notify to P...req_ids_ = {req_ids_},path = {path}")
             self.sock.send(req.encode("utf-8"))
-            print(f"zovlog: sending notify to P finished")
+            # print(f"zovlog: sending notify to P finished")
     
     def pop_finished_req_ids(self):
         # P 节点调用
@@ -511,7 +511,7 @@ class MoRIIOConnectorScheduler:
             return False, None
 
         # Get computed blocks.
-        logger.info(f"zovlog:--------------> calculate all full!!!!! {request.num_computed_tokens = },{self.block_size = },{request.num_computed_tokens % self.block_size = }")
+        # logger.info(f"zovlog:--------------> calculate all full!!!!! {request.num_computed_tokens = },{self.block_size = },{request.num_computed_tokens % self.block_size = }")
         all_full = request.num_computed_tokens % self.block_size == 0
         # computed_block_ids = block_ids if all_full else block_ids[:-1]
         # 不论是否已满,都要传输全部的blockids
@@ -717,11 +717,11 @@ class MoRIIOConnectorWorker:
                 sock.send(msgpack.dumps(data))
                 # print(f"zovlog:====>Sent: {data}")
             except ConnectionRefusedError:
-                print(f"zovlog:====> {(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)} send failed,connection refused")
+                logger.info(f"zovlog:====> {(self.local_ip,self.local_ping_port)},'->',{(self.proxy_ip, self.proxy_ping_port)} send failed,connection refused")
             except OSError as e:
-                print(f"zovlog:===> send failed , os error {e}")
+                logger.info(f"zovlog:===> send failed , os error {e}")
             except Exception as e:
-                print(f"zovlog:===> send failed , unknown error {e}")
+                logger.info(f"zovlog:===> send failed , unknown error {e}")
             finally:
                 time.sleep(10)
                 index += 1
@@ -844,7 +844,7 @@ class MoRIIOConnectorWorker:
                 logger.warning(f"zovlog:=======> {len(self.remote_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
                 self.remote_kv_cache_metadata = []
 
-            logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
+            # logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
             received_frame = sock.recv_multipart()
             # logger.info(f"zovlog:==========> D instance received. received_frame {received_frame = }")
             if len(received_frame) != 2 or received_frame[0] != b"":
@@ -857,7 +857,7 @@ class MoRIIOConnectorWorker:
             # logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = },{self.remote_kv_cache_metadata = },{self.layer_name_to_remote_kv_cache_metadata = }")
 
         # Remote rank -> agent name.
-        logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
+        # logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
         return {p_remote_rank: remote_agent_name}
 
     def _background_nixl_handshake(self, req_id: str,

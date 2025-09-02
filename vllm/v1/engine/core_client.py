@@ -498,7 +498,7 @@ class MPClient(EngineCoreClient):
 
     def ensure_alive(self):
         if self.resources.engine_dead:
-            logger.info(f"zovlog:0828===========> ensure_alive failed,raise engine dead")
+            # logger.info(f"zovlog:0828===========> ensure_alive failed,raise engine dead")
             raise EngineDeadError()
 
     def add_pending_message(self, tracker: zmq.MessageTracker, msg: Any):
@@ -792,10 +792,10 @@ class AsyncMPClient(MPClient):
                     if outputs.outputs or outputs.scheduler_stats:
                         outputs_queue.put_nowait(outputs)
             except Exception as e:
-                logger.info(f"zovlog:0828==========> catch an Exception = {e}")
+                # logger.info(f"zovlog:0828==========> catch an Exception = {e}")
                 outputs_queue.put_nowait(e)
             except asyncio.CancelledError:
-                logger.info(f"zovlog:0828==========> catch an asyncio.CancelledError,send EngineDeadError")
+                # logger.info(f"zovlog:0828==========> catch an asyncio.CancelledError,send EngineDeadError")
                 outputs_queue.put_nowait(EngineDeadError())
 
         resources.output_queue_task = asyncio.create_task(

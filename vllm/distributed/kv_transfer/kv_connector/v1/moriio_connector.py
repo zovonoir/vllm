@@ -151,11 +151,11 @@ class MoRIIOWrapper():
             host = "*"
             path = make_zmq_path("tcp", host, self.notify_port)
             with zmq_ctx(zmq.ROUTER, path) as sock:
-                logger.info(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!! listen:{path}")
+                # logger.info(f"zovlog:async async_wait_D_finish_reqid launched!!!!!!!!!!! listen:{path}")
                 while True:
                     identity, msg = sock.recv_multipart()
                     msg = msg.decode("UTF-8")
-                    logger.info(f"zovlog:P received msg!!!!!!! msg = {msg}")
+                    # logger.info(f"zovlog:P received msg!!!!!!! msg = {msg}")
                     if not msg.startswith("cmpl"):
                         assert 0,"P instance received error req id data"
                     with self.lock:
@@ -165,7 +165,7 @@ class MoRIIOWrapper():
         
     
     def send_notify_to_P(self,req_ids):
-        logger.info(f"zovlog: enter sending notify to P...req_ids = {req_ids}")
+        # logger.info(f"zovlog: enter sending notify to P...req_ids = {req_ids}")
         assert self.remote_engine_ip is not None,"remote engine ip is None!"
         assert self.notify_port is not None,"remote engine port is not None!"
         if not isinstance(req_ids,list):
@@ -1257,10 +1257,10 @@ class MoRIIOConnectorWorker:
         #     done_sending.remove(val)
         
         if self.is_producer:
-            logger.info(f"zovog:======> call get_finished,my role = P")
+            # logger.info(f"zovog:======> call get_finished,my role = P")
             done_sending = self.nixl_wrapper.pop_finished_req_ids()
             done_recving = set()
-            logger.info(f"zovog:======> call get_finished,my role = P done_sending = {done_sending}")
+            # logger.info(f"zovog:======> call get_finished,my role = P done_sending = {done_sending}")
         else:
             # logger.info(f"zovog:======> call get_finished,my role = D")
             done_sending, done_recving = set(), set()
@@ -1411,8 +1411,8 @@ class MoRIIOConnectorWorker:
                 offset_v_remote = self.kv_caches[layer_name].element_size() * (1 * stride[0] + remote_block_ids[idx] * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
-                # self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
+                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,0,0)
                 # self.nixl_wrapper.read_remote_data(transfer_size_byte,0,0)
             # for blkid in remote_block_ids:
@@ -1424,8 +1424,8 @@ class MoRIIOConnectorWorker:
             #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
             #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
-        logger.info(f"zovlog:=======> wait for all transfer complete!")
-        # self.nixl_wrapper.waiting_for_read_complete()
+        # logger.info(f"zovlog:=======> wait for all transfer complete!")
+        self.nixl_wrapper.waiting_for_read_complete()
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break

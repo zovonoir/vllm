@@ -595,10 +595,10 @@ class MoRIIOConnectorWorker:
         logger.info(f"Initializing MoRIIO Engine ,engine = {self.moriio_engine},role = {'producer' if self.is_producer else 'consumer'}")
         logger.info(f"zovlog:=====>{self.local_ip = },{self._rank = },{self._local_rank = },{self.local_kv_port = },{self.proxy_ip = },{self.proxy_port = },{self.local_ping_port = },{self.proxy_ping_port = }")
         # Agent.
-        self.nixl_wrapper = MoRIIOWrapper()
-        self.nixl_wrapper.set_moriio_engine(self.moriio_engine)
-        self.nixl_wrapper.set_backend_type(BackendType.RDMA)
-        self.nixl_wrapper.notify_port = self.notify_port
+        self.moriio_wrapper = MoRIIOWrapper()
+        self.moriio_wrapper.set_moriio_engine(self.moriio_engine)
+        self.moriio_wrapper.set_backend_type(BackendType.RDMA)
+        self.moriio_wrapper.notify_port = self.notify_port
         self.local_kv_cache_metadata = []
         self.local_kv_cache_size = []
         self.layer_name_to_local_kv_cache_metadata:dict[str, List[Any]] = dict()
@@ -833,9 +833,9 @@ class MoRIIOConnectorWorker:
 
             # Register Remote agent.
             # remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
-            # self.nixl_wrapper.remote_handshake_port = port + p_remote_rank
-            self.nixl_wrapper.remote_engine_ip = host
-            remote_agent_name = self.nixl_wrapper.register_remote_engine(metadata.agent_metadata)
+            # self.moriio_wrapper.remote_handshake_port = port + p_remote_rank
+            self.moriio_wrapper.remote_engine_ip = host
+            remote_agent_name = self.moriio_wrapper.register_remote_engine(metadata.agent_metadata)
             remote_agent_name = self.add_remote_agent(metadata, p_remote_rank,remote_tp_size)
             if len(self.local_kv_cache_metadata) > 0:
                 logger.warning(f"zovlog:=======> {len(self.local_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
@@ -976,7 +976,7 @@ class MoRIIOConnectorWorker:
             cache_list = [cache_or_caches] if use_mla or self._use_flashinfer else cache_or_caches
             # logger.info(f"zovlog:=============> prepare register local kv cache tensor for local mori io engine,{len(cache_list) = },{kv_caches.keys() = }")
             for cache in cache_list:
-                # moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) # register one block
+                # moriio_mem_metadata = self.moriio_wrapper.register_local_tensor(cache) # register one block
                 # self.local_kv_cache_metadata.append(moriio_mem_metadata)
                 # self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
                 # logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.local_kv_cache_metadata[-1] = },{self.block_len = },{self.num_blocks = },{kv_elem_size = },{first_kv_cache.shape = },{block_shape = }")
@@ -997,8 +997,8 @@ class MoRIIOConnectorWorker:
                 self.layer_name_to_local_kv_cache_metadata[layer_name] = []
 
             # for cache in cache_list:
-            # moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(cache) 
-            moriio_mem_metadata = self.nixl_wrapper.register_local_tensor(kv_cache) 
+            # moriio_mem_metadata = self.moriio_wrapper.register_local_tensor(cache) 
+            moriio_mem_metadata = self.moriio_wrapper.register_local_tensor(kv_cache) 
             self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
             self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
             # logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{kv_cache.shape = },{block_shape = }")
@@ -1034,7 +1034,7 @@ class MoRIIOConnectorWorker:
         # P节点在register kvcache的时候就会启动一个监听线程,等待D节点拉取数据
         metadata = MoRIIOAgentMetadata(
             engine_id=self.engine_id,
-            agent_metadata=self.nixl_wrapper.get_agent_metadata(),
+            agent_metadata=self.moriio_wrapper.get_agent_metadata(),
             kv_caches_base_addr=self.kv_caches_base_addr[self.engine_id],
             num_blocks=self.num_blocks,
             block_len=self.block_len,
@@ -1049,9 +1049,9 @@ class MoRIIOConnectorWorker:
         ready_event.wait()  # Wait for listener ZMQ socket to be ready.
 
         '''
-        descs = self.nixl_wrapper.get_reg_descs(caches_data, "VRAM")
+        descs = self.moriio_wrapper.get_reg_descs(caches_data, "VRAM")
         logger.debug("Registering descs: %s", caches_data)
-        self.nixl_wrapper.register_memory(descs)
+        self.moriio_wrapper.register_memory(descs)
         logger.debug("Done registering descs")
         self._registered_descs.append(descs)
 
@@ -1071,15 +1071,15 @@ class MoRIIOConnectorWorker:
         logger.debug("Created %s blocks for src engine %s and rank %s",
                      len(blocks_data), self.engine_id, self.tp_rank)
 
-        descs = self.nixl_wrapper.get_xfer_descs(blocks_data, "VRAM")
+        descs = self.moriio_wrapper.get_xfer_descs(blocks_data, "VRAM")
         # NIXL_INIT_AGENT to be used for preparations of local descs.
-        self.src_xfer_side_handle = self.nixl_wrapper.prep_xfer_dlist(
+        self.src_xfer_side_handle = self.moriio_wrapper.prep_xfer_dlist(
             "NIXL_INIT_AGENT", descs)
 
         # After KV Caches registered, listen for new connections.
         metadata = MoRIIOAgentMetadata(
             engine_id=self.engine_id,
-            agent_metadata=self.nixl_wrapper.get_agent_metadata(),
+            agent_metadata=self.moriio_wrapper.get_agent_metadata(),
             kv_caches_base_addr=self.kv_caches_base_addr[self.engine_id],
             num_blocks=self.num_blocks,
             block_len=self.block_len,
@@ -1152,7 +1152,7 @@ class MoRIIOConnectorWorker:
         remote_agent_name = "test"
 
         '''
-        remote_agent_name = self.nixl_wrapper.add_remote_agent(
+        remote_agent_name = self.moriio_wrapper.add_remote_agent(
             nixl_agent_meta.agent_metadata)
 
         # Number of D TP workers reading from a single P TP worker. This is
@@ -1218,9 +1218,9 @@ class MoRIIOConnectorWorker:
             self.tp_rank)
 
         # Register with MoRIIO.
-        descs = self.nixl_wrapper.get_xfer_descs(blocks_data, "VRAM")
+        descs = self.moriio_wrapper.get_xfer_descs(blocks_data, "VRAM")
         self.dst_xfer_side_handles[
-            engine_id] = self.nixl_wrapper.prep_xfer_dlist(
+            engine_id] = self.moriio_wrapper.prep_xfer_dlist(
                 remote_agent_name, descs)
         '''
 
@@ -1258,7 +1258,7 @@ class MoRIIOConnectorWorker:
         
         if self.is_producer:
             # logger.info(f"zovog:======> call get_finished,my role = P")
-            done_sending = self.nixl_wrapper.pop_finished_req_ids()
+            done_sending = self.moriio_wrapper.pop_finished_req_ids()
             done_recving = set()
             # logger.info(f"zovog:======> call get_finished,my role = P done_sending = {done_sending}")
         else:
@@ -1275,7 +1275,7 @@ class MoRIIOConnectorWorker:
         pass
 
         # notified_req_ids: set[str] = set()
-        # for notifs in self.nixl_wrapper.get_new_notifs().values():
+        # for notifs in self.moriio_wrapper.get_new_notifs().values():
         #     for notif in notifs:
         #         req_id, tp_ratio = notif.decode("utf-8").rsplit(":", 1)
         #         self.consumer_notification_counts_by_req[req_id] += 1
@@ -1299,9 +1299,9 @@ class MoRIIOConnectorWorker:
         for req_id, handles in list(transfers.items()):
             in_progress = False
             for handle, _xfer_stime in handles:
-                xfer_state = self.nixl_wrapper.check_xfer_state(handle)
+                xfer_state = self.moriio_wrapper.check_xfer_state(handle)
                 if xfer_state == "DONE":
-                    self.nixl_wrapper.release_xfer_handle(handle)
+                    self.moriio_wrapper.release_xfer_handle(handle)
                 elif xfer_state == "PROC":
                     in_progress = True
                     continue
@@ -1320,7 +1320,7 @@ class MoRIIOConnectorWorker:
         We check for these trnxs to complete in each step().
         """
         if self.is_producer:
-            self.nixl_wrapper.async_wait_D_finish_reqid()
+            self.moriio_wrapper.async_wait_D_finish_reqid()
             # logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
             return
         
@@ -1367,7 +1367,7 @@ class MoRIIOConnectorWorker:
         self._reqs_to_send.update(metadata.reqs_to_send)
         for req_id, _ in metadata.reqs_to_recv.items():
             logger.info(f"zovlog: send {req_id} to notify ")
-            self.nixl_wrapper.send_notify_to_P(req_id)
+            self.moriio_wrapper.send_notify_to_P(req_id)
 
     def _read_blocks_for_req(self, req_id: str, meta: ReqMeta):
         logger.debug(
@@ -1401,8 +1401,8 @@ class MoRIIOConnectorWorker:
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
             # logger.error(f"zovlog:--------> {layer_name = },{local_kv_cache_metadata[0] = },{len(local_kv_cache_metadata) = },{self.kv_caches[layer_name].shape = },{self.kv_caches[layer_name].stride() = }")
             stride = self.kv_caches[layer_name].stride()
-            self.nixl_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
-            self.nixl_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
+            self.moriio_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
+            self.moriio_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             for idx,local_blkid in enumerate(local_block_ids):
                 # logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{local_blkid}")
                 offset_k_local = self.kv_caches[layer_name].element_size() * (0 * stride[0] + local_blkid * stride[1])
@@ -1411,21 +1411,21 @@ class MoRIIOConnectorWorker:
                 offset_v_remote = self.kv_caches[layer_name].element_size() * (1 * stride[0] + remote_block_ids[idx] * stride[1])
                 transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
-                self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
-                # self.nixl_wrapper.read_remote_data(transfer_size_byte,0,0)
-                # self.nixl_wrapper.read_remote_data(transfer_size_byte,0,0)
+                self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
+                self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
+                # self.moriio_wrapper.read_remote_data(transfer_size_byte,0,0)
+                # self.moriio_wrapper.read_remote_data(transfer_size_byte,0,0)
             # for blkid in remote_block_ids:
             #     logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
             #     offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
             #     offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
             #     transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
             #     # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-            #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
-            #     self.nixl_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
+            #     self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
+            #     self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
         # logger.info(f"zovlog:=======> wait for all transfer complete!")
-        self.nixl_wrapper.waiting_for_read_complete()
+        self.moriio_wrapper.waiting_for_read_complete()
         # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
         #     print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
         #     break
@@ -1453,7 +1453,7 @@ class MoRIIOConnectorWorker:
         if num_local_blocks == 0:
             remote_rank = self.tp_rank // tp_ratio
             agent_name = self._remote_agents[dst_engine_id][remote_rank]
-            self.nixl_wrapper.send_notif(agent_name, notif_msg=notif_id)
+            self.moriio_wrapper.send_notif(agent_name, notif_msg=notif_id)
             return
         '''
 
@@ -1503,7 +1503,7 @@ class MoRIIOConnectorWorker:
         assert len(local_block_descs_ids) == len(remote_block_descs_ids)
         '''
         # Prepare transfer with Nixl.
-        handle = self.nixl_wrapper.make_prepped_xfer(
+        handle = self.moriio_wrapper.make_prepped_xfer(
             "READ",
             local_xfer_side_handle,
             local_block_descs_ids,
@@ -1513,7 +1513,7 @@ class MoRIIOConnectorWorker:
         )
 
         # Begin async xfer.
-        self.nixl_wrapper.transfer(handle)
+        self.moriio_wrapper.transfer(handle)
         
 
         # Use handle to check completion in future step().

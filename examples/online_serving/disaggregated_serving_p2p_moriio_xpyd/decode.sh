@@ -22,7 +22,7 @@ export VLLM_ENABLE_DSV3=0
 export SAFETENSORS_FAST_GPU=1   
 export IBV_DRIVERS_LOG_LEVEL=4
 # {
-vllm serve /apps/data/models/Qwen3_MINI  \
+vllm serve /apps/data/models/Qwen3-32B  \
         -tp 1   \
         --block-size 16  \
         --enforce-eager \

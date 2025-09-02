@@ -155,7 +155,7 @@ class MoRIIOWrapper():
                 while True:
                     identity, msg = sock.recv_multipart()
                     msg = msg.decode("UTF-8")
-                    logger.info(f"zovlog:P received msg!!!!!!! msg = {msg}")
+                    logger.info(f"zovlog:P received red id {msg}")
                     if not msg.startswith("cmpl"):
                         assert 0,"P instance received error req id data"
                     with self.lock:

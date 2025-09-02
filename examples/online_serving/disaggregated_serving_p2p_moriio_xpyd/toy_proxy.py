@@ -98,7 +98,7 @@ async def send_request_to_prefill(endpoint,req_data,request_id):
                 raise RuntimeError("send_request_to_prefill response.status != 200,response.statuus = ",response.status)
 
 async def send_request_to_decode(endpoint,req_data,request_id):
-    # print(f"zovlog ========================== send response to decode {req_data}")
+    print(f"zovlog ========================== send response to decode {request_id}")
     async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=6 * 60 * 60)) as session:
         headers = {
             "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}",
@@ -107,6 +107,7 @@ async def send_request_to_decode(endpoint,req_data,request_id):
         async with session.post(url=endpoint, json=req_data, headers=headers) as response:
             if response.status == 200:
                 async for chunk_bytes in response.content.iter_chunked(1024):
+                        print(f"zovlog yield chunk for {request_id}")
                         yield chunk_bytes
             else:
                 raise RuntimeError("send_request_to_decode response.status != 200,response.statuus = ",response.status)
@@ -115,7 +116,7 @@ async def send_request_to_decode(endpoint,req_data,request_id):
 @app.route("/v1/completions", methods=["POST"])
 @app.route("/v1/chat/completions", methods=["POST"])
 async def handle_request():
-    print(f"zovlog:-----------> enter request")
+    # print(f"zovlog:-----------> enter request")
     global request_nums
     extract_ip_port = lambda url: re.search(r'//(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)', url).groups()
     req_data = await request.get_json()
@@ -143,7 +144,7 @@ async def handle_request():
     generator = send_request_to_decode(decode_instance_endpoint['request_address'],req_data,request_id)
     response = await make_response(generator)
     request_nums += 1
-    print(f"zovlog:-----------> quit request")
+    # print(f"zovlog:-----------> quit request")
     return response
 
 

@@ -24,6 +24,8 @@ decode_instances = []
 request_nums = 0
 app = Quart(__name__)
 
+yield_chunk = set()
+
 def _listen_for_register(hostname, port):
     context = zmq.Context()
     router_socket = context.socket(zmq.ROUTER)
@@ -107,7 +109,9 @@ async def send_request_to_decode(endpoint,req_data,request_id):
         async with session.post(url=endpoint, json=req_data, headers=headers) as response:
             if response.status == 200:
                 async for chunk_bytes in response.content.iter_chunked(1024):
-                        print(f"zovlog yield chunk for {request_id}")
+                        if request_id not in yield_chunk:
+                            print(f"zovlog yield chunk for {request_id}")
+                            yield_chunk.add(request_id)
                         yield chunk_bytes
             else:
                 raise RuntimeError("send_request_to_decode response.status != 200,response.statuus = ",response.status)

@@ -417,7 +417,6 @@ class MoRIIOConnectorScheduler:
         # logger.info(
             # f"moriioConnector update_state_after_alloc: "
             # f"num_external_tokens={num_external_tokens}, kv_transfer_params={params},{params.get("do_remote_prefill") = },{params.get("remote_block_ids") = }")
-        # logger.info(f"zovlog:0827--------------> call update_state_after_alloc blocks = {blocks}")
         if params is not None and params.get("do_remote_prefill"):
             if remote_block_ids := params.get("remote_block_ids"):
                 if all(p in params for p in ("remote_engine_id", "remote_host",
@@ -431,13 +430,9 @@ class MoRIIOConnectorScheduler:
                     # 临时修改测试,如果local分配的和remote的长度不一样,那么就说明只需要load remote的后面几个
                     # Get unhashed blocks to pull from remote.
                     local_block_ids = blocks.get_block_ids()[0]
-                    # logger.info(f"zovlog:0827--------------> get local block ids = {local_block_ids}")
                     assert len(local_block_ids) <= len(remote_block_ids)
-                    # logger.error(f"zovlog:0827:====================> len(local_block_ids) = {len(local_block_ids)},len(remote_block_ids) = {len(remote_block_ids)}")
-                    # logger.error(f"zovlog:0827:=====----> local_block_ids = {local_block_ids},remote_block_ids = {remote_block_ids}")
                     if len(local_block_ids) == len(remote_block_ids):
                         # 全部需要load,pass
-                        # logger.info(f"zovlog:0827--------------> passed!")
                         pass
                     else:
                         # 只需要load prefix cacheing 未命中的部分
@@ -844,9 +839,7 @@ class MoRIIOConnectorWorker:
                 logger.warning(f"zovlog:=======> {len(self.remote_kv_cache_metadata) = },maybe you didnt clear this buffer correctly")
                 self.remote_kv_cache_metadata = []
 
-            # logger.info(f"zovlog:===========> D instance prepare to receive meta data...........")
             received_frame = sock.recv_multipart()
-            # logger.info(f"zovlog:==========> D instance received. received_frame {received_frame = }")
             if len(received_frame) != 2 or received_frame[0] != b"":
                 assert 0,f"Unexpected frame! {received_frame = }"
             buf = received_frame[1]
@@ -854,7 +847,6 @@ class MoRIIOConnectorWorker:
                 
             setup_agent_time = time.perf_counter()
             logger.debug("MoRIIO handshake: add agent took: %s",setup_agent_time - got_metadata_time)
-            # logger.info(f"zovlog:=============> handshake successful!!!!!!!!,{self.local_kv_cache_metadata = },{self.remote_kv_cache_metadata = },{self.layer_name_to_remote_kv_cache_metadata = }")
 
         # Remote rank -> agent name.
         # logger.info(f"zovlog:====> {p_remote_rank = },{remote_agent_name = }")
@@ -864,7 +856,6 @@ class MoRIIOConnectorWorker:
                                    remote_engine_id: EngineId, meta: ReqMeta):
         # Do MoRIIO handshake in background and add to _ready_requests when done.
         fut = self._handshake_futures.get(remote_engine_id)
-        # logger.info(f"zovlog:====================> I am in _background_nixl_handshake {fut = }")
         if fut is None:
             host = meta.remote_host
             # port = int(meta.remote_port)
@@ -874,7 +865,6 @@ class MoRIIOConnectorWorker:
             
 
             def done_callback(f: Future[dict[int, str]], eid=remote_engine_id):
-                # logger.info(f"zovlog:==============> done_callback called")
                 with self._handshake_lock:
                     del self._handshake_futures[eid]
                     try:
@@ -1002,9 +992,6 @@ class MoRIIOConnectorWorker:
             self.layer_name_to_local_kv_cache_metadata[layer_name].append(moriio_mem_metadata)
             self.local_kv_cache_size.append(cache.nelement() * cache.element_size())
             # logger.info(f"zovlog::===========> registered:{self.local_kv_cache_size[-1] = },{self.layer_name_to_local_kv_cache_metadata[layer_name][-1] = },{self.block_len = },{self.num_blocks = },{kv_cache.shape = },{block_shape = }")
-
-
-
 
 
         self.kv_caches_base_addr[self.engine_id] = kv_caches_base_addr
@@ -1354,7 +1341,7 @@ class MoRIIOConnectorWorker:
                 # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
                 pass
             elif not self._ready_requests.empty() and self.load_kv_flag:
-                # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
                 self._read_blocks_for_req(*self._ready_requests.get_nowait())
                 break
             else:
@@ -1387,12 +1374,7 @@ class MoRIIOConnectorWorker:
                      request_id: str):
         # logger.error(f"zovlog:========> start read blocks {local_block_ids = },{remote_block_ids = },{dst_engine_id = },{request_id = }")
         # return
-        # 直接开始传输
         # 每一层的对应blkid都需要传输
-        # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-        #     print(f"before load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
-        #     break
-        # return  
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
         # logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches
@@ -1403,6 +1385,8 @@ class MoRIIOConnectorWorker:
             stride = self.kv_caches[layer_name].stride()
             self.moriio_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.moriio_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
+            # 在local_block_ids这个序列中,判断一下那些是连续的
+            
             for idx,local_blkid in enumerate(local_block_ids):
                 # logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{local_blkid}")
                 offset_k_local = self.kv_caches[layer_name].element_size() * (0 * stride[0] + local_blkid * stride[1])
@@ -1413,22 +1397,9 @@ class MoRIIOConnectorWorker:
                 # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
                 self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
                 self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
-                # self.moriio_wrapper.read_remote_data(transfer_size_byte,0,0)
-                # self.moriio_wrapper.read_remote_data(transfer_size_byte,0,0)
-            # for blkid in remote_block_ids:
-            #     logger.error(f"zovlog:-----------> loading remote blkid:{blkid}")
-            #     offset_k = self.kv_caches[layer_name].element_size() * (0 * stride[0] + blkid * stride[1])
-            #     offset_v = self.kv_caches[layer_name].element_size() * (1 * stride[0] + blkid * stride[1])
-            #     transfer_size_byte = blksize * hn * hs * self.kv_caches[layer_name].element_size()
-            #     # logger.info(f"zovlog:===========>{self.kv_cache_shape = },{layer_name = },{offset_k = },{offset_v = },{transfer_size_byte = },{blkid = },{stride = }")
-            #     self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_v,offset_v)
-            #     self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_k,offset_k)
 
         # logger.info(f"zovlog:=======> wait for all transfer complete!")
         self.moriio_wrapper.waiting_for_read_complete()
-        # for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
-        #     print(f"after load ::::::::::: {layer_name = } , {self.kv_caches[layer_name].sum().item() = },{self.kv_caches[layer_name][0,1,0,0,0:32] = }")
-        #     break
 
         return
         # NOTE(rob): having the staging blocks be on the READER side is

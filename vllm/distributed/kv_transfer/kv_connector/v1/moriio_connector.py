@@ -288,7 +288,6 @@ class MoRIIOConnector(KVConnectorBase_V1):
     def update_state_after_alloc(self, request: "Request",
                                  blocks: "KVCacheBlocks",
                                  num_external_tokens: int):
-        # logger.info(f"zovlog:-----================> enter mori io connector update_state_after_alloc")
         assert self.connector_scheduler is not None
         return self.connector_scheduler.update_state_after_alloc(
             request, blocks, num_external_tokens)
@@ -878,12 +877,10 @@ class MoRIIOConnectorWorker:
         # TODO: handle failure state of future in the
         # callback, we want to fail the request in this case.
         def request_ready(_f: Future[Any], entry=(req_id, meta)):
-            logger.info(f"zovlog:==============> request_ready called")
             self._ready_requests.put(entry)
             self.load_kv_flag = True 
 
         fut.add_done_callback(request_ready)
-        # fut.result() # zov: blocking this thread until all tasks finished,thus the "background handshake" is actually "foreground"
 
     def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
         """Register the KV Cache data in nixl."""
@@ -975,9 +972,6 @@ class MoRIIOConnectorWorker:
                 caches_data.append(
                     (base_addr, region_len, cache.device.index, ""))
                 kv_caches_base_addr.append(base_addr)
-
-        # for _,t in kv_caches.items():
-        #     logger.info(f"zovlog:===========> enter register kv cache,name = {_},shape = {t.shape}")
 
         for layer_name,kv_cache in kv_caches.items():
             # cache_list = [kv_cache] if use_mla or self._use_flashinfer else kv_cache
@@ -1308,7 +1302,6 @@ class MoRIIOConnectorWorker:
         """
         if self.is_producer:
             self.moriio_wrapper.async_wait_D_finish_reqid()
-            # logger.info(f"zovlog:====>moriio start load kv,but I am producer,launch async notify thread and quit")
             return
         
         # logger.info(f"zovlog:======> start load kv,{metadata.reqs_to_recv.items() = }")
@@ -1329,12 +1322,8 @@ class MoRIIOConnectorWorker:
                         continue
                         
             # Handshake already completed, start async read xfer.
-            # logger.info(f"zovlog:==============> prepare read block ")
             self._read_blocks_for_req(req_id, meta)
-            # logger.info(f"zovlog:==============> read block finished ")
         # Start transfers for requests whose handshakes have now finished.
-        # logger.info(f"zovlog:==============> {self._ready_requests.empty() = }")
-        # self._pop_done_transfers(req_id)
 
         while True:
             if self._ready_requests.empty() and not self.load_kv_flag: # 第一次进入,需要一直等待
@@ -1378,6 +1367,7 @@ class MoRIIOConnectorWorker:
         layername0 = list(self.layer_name_to_local_kv_cache_metadata.keys())[0]
         # logger.info(f"tensor:{layername0}:::{self.kv_caches[layername0].sum() = }")
         # self.kv_caches
+        # contiguous_ids = search_contiguous_block_ids(local_block_ids,remote_block_ids)
         _,blknum,blksize,hn,hs = self.kv_cache_shape
         # stride = [blknum*blksize*hn*hs   ,blksize*hs*hn   ,hs*hn   ,hs   ,1]
         for layer_name,local_kv_cache_metadata in self.layer_name_to_local_kv_cache_metadata.items():
@@ -1386,9 +1376,8 @@ class MoRIIOConnectorWorker:
             self.moriio_wrapper.set_local_memory_metadata(local_kv_cache_metadata[0])
             self.moriio_wrapper.set_remote_memory_metadata(self.layer_name_to_remote_kv_cache_metadata[layer_name][0])
             # 在local_block_ids这个序列中,判断一下那些是连续的
-            
+            # for start,end in zip(contiguous_ids[])
             for idx,local_blkid in enumerate(local_block_ids):
-                # logger.error(f"zovlog:-----------> loading remote blkid:{remote_block_ids[idx]}->local blkid:{local_blkid}")
                 offset_k_local = self.kv_caches[layer_name].element_size() * (0 * stride[0] + local_blkid * stride[1])
                 offset_v_local = self.kv_caches[layer_name].element_size() * (1 * stride[0] + local_blkid * stride[1])
                 offset_k_remote = self.kv_caches[layer_name].element_size() * (0 * stride[0] + remote_block_ids[idx] * stride[1])
@@ -1398,7 +1387,6 @@ class MoRIIOConnectorWorker:
                 self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_v_local,offset_v_remote)
                 self.moriio_wrapper.read_remote_data(transfer_size_byte,offset_k_local,offset_k_remote)
 
-        # logger.info(f"zovlog:=======> wait for all transfer complete!")
         self.moriio_wrapper.waiting_for_read_complete()
 
         return

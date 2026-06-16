@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import os
 from dataclasses import dataclass
 from typing import Any, ClassVar, cast
 
@@ -19,7 +20,21 @@ from vllm.models.deepseek_v4.common.ops.fused_indexer_q import MXFP4_BLOCK_SIZE
 from vllm.models.deepseek_v4.common.ops.save_partial_states import (
     save_partial_states,
 )
+from vllm.logger import init_logger
 from vllm.platforms import current_platform
+
+logger = init_logger(__name__)
+
+# [EXPERIMENTAL] Use bf16 state_cache with in-kernel APE addition.
+# Reduces memory bandwidth by storing raw kv/score in bf16 instead of fp32.
+# APE is added inside the compress kernel to maintain numerical precision.
+# Example: VLLM_DSV4_BF16_STATE_CACHE=1
+_USE_BF16_STATE_CACHE = os.environ.get("VLLM_DSV4_BF16_STATE_CACHE", "0") == "1"
+
+# Opt-in: route the compressor through the fused, byte-exact HIP kernels on
+# gfx950 (CDNA4). Requires VLLM_DSV4_BF16_STATE_CACHE=1; falls back to Triton
+# when any precondition is unmet (see amd/ops/hip_compress_dispatch.py).
+_USE_HIP_COMPRESSOR = os.environ.get("VLLM_DSV4_HIP_COMPRESSOR", "0") == "1"
 from vllm.v1.attention.backend import (
     AttentionBackend,
     AttentionCGSupport,
@@ -136,7 +151,7 @@ class CompressorStateCache(torch.nn.Module, AttentionLayerBase):
             raise ValueError(f"Duplicate layer name: {prefix}")
         compilation_config.static_forward_context[prefix] = self
 
-        assert self.dtype == torch.float32
+        assert self.dtype in (torch.float32, torch.bfloat16)
         assert compress_ratio in [4, 128]
         coff = 1 + (compress_ratio == 4)
         self.sliding_window = coff * compress_ratio
@@ -216,11 +231,16 @@ class DeepseekCompressor(nn.Module):
         self.overlap = compress_ratio == 4
         self.coff = 1 + self.overlap
 
-        state_dtype = torch.float32
+        # BF16 state_cache optimization: store raw kv/score in bf16,
+        # add APE inside compress kernel to maintain precision.
+        self.use_bf16_state_cache = _USE_BF16_STATE_CACHE
+        state_dtype = torch.bfloat16 if self.use_bf16_state_cache else torch.float32
+
+        # APE is always fp32 for numerical precision in score + ape addition
         self.ape = nn.Parameter(
             torch.empty(
                 (compress_ratio, self.coff * self.head_dim),
-                dtype=state_dtype,
+                dtype=torch.float32,
                 device=self.device,
             ),
             requires_grad=False,
@@ -309,16 +329,19 @@ class DeepseekCompressor(nn.Module):
             else {"launch_pdl": False}
         )
 
-        # Store the KV and score (with fused APE addition) in the state.
+        # Store the KV and score in the state cache.
         # NOTE: PDL is disabled — both this kernel and the compress kernels
         # below depend on preceding kernel outputs (kv/score from the cublas
         # GEMM; state_cache from this kernel) but neither emits/waits on PDL
         # grid dependency primitives, so launch_pdl=True caused a
         # read-after-write race and non-deterministic output.
+        #
+        # When use_bf16_state_cache=True, we store raw score without APE;
+        # APE is added inside the compress kernel to maintain fp32 precision.
         save_partial_states(
             kv=kv,
             score=score,
-            ape=self.ape,
+            ape=None if self.use_bf16_state_cache else self.ape,
             positions=positions,
             state_cache=state_cache,
             slot_mapping=slot_mapping,
@@ -367,10 +390,51 @@ class DeepseekCompressor(nn.Module):
                 store_full_fp8=store_full_fp8,
                 fp8_scale=fp8_scale,
             )
+        elif current_platform.is_rocm() and _USE_HIP_COMPRESSOR:
+            # Validated fused HIP compressor (gfx950 / CDNA4). Purely additive:
+            # any unmet precondition falls back to Triton below, so existing
+            # paths are unchanged when the flag is off.
+            from .amd.ops.hip_compress_dispatch import (
+                compress_norm_rope_store_hip,
+                hip_compressor_supported,
+            )
+
+            if hip_compressor_supported(
+                self.head_dim, self.compress_ratio, kv_cache,
+                self.use_bf16_state_cache,
+            ):
+                compress_norm_rope_store_fn = compress_norm_rope_store_hip
+            elif self.use_bf16_state_cache:
+                # Triton cannot serve as a fallback here: it has no bf16
+                # state-cache path (raises NotImplementedError). Fail with a
+                # root-cause message instead of deferring to a doomed Triton call.
+                raise RuntimeError(
+                    "VLLM_DSV4_HIP_COMPRESSOR with bf16 state cache "
+                    "(VLLM_DSV4_BF16_STATE_CACHE=1) is set, but the fused HIP "
+                    "compressor is unavailable for this configuration (needs "
+                    "gfx950 + a supported (head_dim, compress_ratio) + a uint8 "
+                    "paged cache). Triton has no bf16-state-cache path and cannot "
+                    "serve as a fallback. Use a gfx950 host, or disable "
+                    "VLLM_DSV4_BF16_STATE_CACHE."
+                )
+            else:
+                # bf16 state cache is off — that is itself the disqualifier, and
+                # the Triton path handles the non-bf16 case fine.
+                logger.warning_once(
+                    "VLLM_DSV4_HIP_COMPRESSOR requires VLLM_DSV4_BF16_STATE_CACHE=1; "
+                    "it is off, so falling back to Triton."
+                )
+                compress_norm_rope_store_fn = compress_norm_rope_store_triton
+            extra_kwargs = {}
         else:
             # Indexer path (head_dim == 128) or non-CUDA GPUs (AMD, XPU, etc.).
             compress_norm_rope_store_fn = compress_norm_rope_store_triton
             extra_kwargs = {}
+
+        # When using bf16 state_cache, pass APE to compress kernel for in-kernel addition
+        if self.use_bf16_state_cache:
+            extra_kwargs["ape"] = self.ape
+            extra_kwargs["use_bf16_state_cache"] = True
 
         compress_norm_rope_store_fn(
             state_cache=state_cache,

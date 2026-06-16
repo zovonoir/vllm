@@ -1039,6 +1039,4 @@ RUN echo "ROCM_BASE_IMAGE=${BASE_IMAGE}" >> ${COMMON_WORKDIR}/versions.txt \
 
 CMD ["/bin/bash"]
 
-#Set entrypoint for vllm-openai official images
 FROM final AS vllm-openai
-ENTRYPOINT ["vllm", "serve"]

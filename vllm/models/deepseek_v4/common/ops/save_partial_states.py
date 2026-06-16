@@ -9,7 +9,7 @@ from vllm.triton_utils import tl, triton
 def save_partial_states(
     kv: torch.Tensor,
     score: torch.Tensor,
-    ape: torch.Tensor,
+    ape: torch.Tensor | None,
     positions: torch.Tensor,
     state_cache: torch.Tensor,
     slot_mapping: torch.Tensor,
@@ -18,12 +18,21 @@ def save_partial_states(
     compress_ratio: int,
     pdl_kwargs: dict | None = None,
 ) -> None:
-    """Write packed [kv, score+ape] partial states into the compressor cache.
+    """Write packed [kv, score(+ape)] partial states into the compressor cache.
 
     One program per token; pads (slot_id == -1) are skipped.
+
+    Args:
+        ape: If None, stores raw score without APE addition (bf16 state_cache mode).
+             APE will be added inside the compress kernel instead.
     """
     num_actual = slot_mapping.shape[0]
     head_size = kv.shape[-1]
+    skip_ape = ape is None
+    if skip_ape:
+        # Create dummy APE for kernel signature; won't be used
+        ape = torch.zeros(1, 1, dtype=torch.float32, device=kv.device)
+
     _save_partial_states_kernel[(num_actual,)](
         kv,
         kv.stride(0),
@@ -41,6 +50,7 @@ def save_partial_states(
         TRITON_BLOCK_SIZE=triton.next_power_of_2(head_size),
         STATE_WIDTH=state_width,
         COMPRESS_RATIO=compress_ratio,
+        SKIP_APE=skip_ape,
         **(pdl_kwargs or {}),
     )
 
@@ -64,6 +74,7 @@ def _save_partial_states_kernel(
     # state_cache last dim packs [kv_state, score_state], each STATE_WIDTH wide.
     STATE_WIDTH: tl.constexpr,
     COMPRESS_RATIO: tl.constexpr,
+    SKIP_APE: tl.constexpr,
 ):
     token_idx = tl.program_id(0)
     slot_id = tl.load(slot_mapping_ptr + token_idx)
@@ -89,13 +100,15 @@ def _save_partial_states_kernel(
     kv = tl.load(kv_ptr + token_idx * kv_stride + block, mask=mask)
     tl.store(base_ptr + block, kv, mask=mask)
 
-    # Fused: score += ape[position % compress_ratio]
-    position = tl.load(positions_ptr + token_idx)
-    ape_row = position % COMPRESS_RATIO
-    ape = tl.load(ape_ptr + ape_row * ape_stride + block, mask=mask)
     score = tl.load(score_ptr + token_idx * score_stride + block, mask=mask)
-    tl.store(
-        base_ptr + STATE_WIDTH + block,
-        score + ape,
-        mask=mask,
-    )
+    if SKIP_APE:
+        # BF16 state_cache mode: store raw score without APE.
+        # APE will be added inside the compress kernel.
+        tl.store(base_ptr + STATE_WIDTH + block, score, mask=mask)
+    else:
+        # FP32 state_cache mode: fuse APE addition here.
+        # score += ape[position % compress_ratio]
+        position = tl.load(positions_ptr + token_idx)
+        ape_row = position % COMPRESS_RATIO
+        ape = tl.load(ape_ptr + ape_row * ape_stride + block, mask=mask)
+        tl.store(base_ptr + STATE_WIDTH + block, score + ape, mask=mask)

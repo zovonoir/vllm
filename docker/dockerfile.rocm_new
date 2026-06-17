@@ -568,127 +568,6 @@ COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/.buildkite /.buildkite
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/pyproject.toml /pyproject.toml
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/vllm/v1 /vllm_v1
 
-# RIXL/UCX build stages
-FROM base AS build_rixl
-ARG RIXL_BRANCH="39be1de8"
-ARG RIXL_REPO="https://github.com/ROCm/RIXL.git"
-ARG UCX_BRANCH="bfb51733"
-ARG UCX_REPO="https://github.com/openucx/ucx.git"
-ENV ROCM_PATH=/opt/rocm
-ENV UCX_HOME=/usr/local/ucx
-ENV RIXL_HOME=/usr/local/rixl
-ENV RIXL_BENCH_HOME=/usr/local/rixl_bench
-
-# RIXL build system dependences and RDMA support
-RUN apt-get -y update && apt-get -y install autoconf libtool pkg-config \
-    libgrpc-dev \
-    libgrpc++-dev \
-    libprotobuf-dev \
-    protobuf-compiler-grpc \
-    libcpprest-dev \
-    libaio-dev \
-    librdmacm1 \
-    librdmacm-dev \
-    libibverbs1 \
-    libibverbs-dev \
-    ibverbs-utils \
-    rdmacm-utils \
-    ibverbs-providers \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system meson auditwheel patchelf tomlkit
-
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    cd /usr/local/src && \
-    git clone ${UCX_REPO} &&  \
-    cd ucx  && \
-    git checkout ${UCX_BRANCH} && \
-    ./autogen.sh && \
-    mkdir build && cd build && \
-    CC="ccache gcc" CXX="ccache g++" \
-    ../configure \
-        --prefix=/usr/local/ucx \
-        --enable-shared \
-        --disable-static \
-        --disable-doxygen-doc \
-        --enable-optimizations \
-        --enable-devel-headers \
-        --with-rocm=${ROCM_PATH} \
-        --with-verbs \
-        --with-dm \
-        --enable-mt && \
-    make -j$(nproc) && \
-    make install
-
-ENV PATH=/usr/local/ucx/bin:$PATH
-ENV LD_LIBRARY_PATH=${UCX_HOME}/lib:${LD_LIBRARY_PATH}
-
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    git clone ${RIXL_REPO} /opt/rixl && \
-    cd /opt/rixl && \
-    git checkout ${RIXL_BRANCH} && \
-    CC="ccache gcc" CXX="ccache g++" \
-    meson setup build --prefix=${RIXL_HOME} \
-                     -Ducx_path=${UCX_HOME} \
-                     -Drocm_path=${ROCM_PATH} && \
-    cd build && \
-    ninja -j$(nproc) && \
-    ninja install
-
-# Generate RIXL wheel
-# Exclude libcore and libpull from auditwheel: transitive dependencies
-# that are not shipped in the wheel and vary across base images.
-RUN cd /opt/rixl && \
-    sed -i "s/--exclude 'libamdhip64\*'/--exclude 'libamdhip64*' --exclude 'libcore*' --exclude 'libpull*'/" \
-        contrib/build-wheel.sh && \
-    mkdir -p /app/install && \
-    _ucx_install_dir=${UCX_HOME} \
-    ./contrib/build-wheel.sh \
-        --output-dir /app/install \
-        --rocm-dir ${ROCM_PATH} \
-        --ucx-plugins-dir ${UCX_HOME}/lib/ucx \
-        --nixl-plugins-dir ${RIXL_HOME}/lib/x86_64-linux-gnu/plugins
-
-# ROCShmem build stage - split from DeepEP so changing DEEPEP_BRANCH does not
-# invalidate the slow ROCShmem build.
-FROM base AS build_rocshmem
-ARG ROCSHMEM_BRANCH="f0acb0c6"
-ARG ROCSHMEM_REPO="https://github.com/ROCm/rocm-systems.git"
-# DeepEP only supports gfx942 and gfx950; build ROCShmem for the same set so
-# it can be linked against DeepEP without arch mismatches.
-ARG DEEPEP_ROCM_ARCH="gfx942;gfx950"
-ENV ROCM_PATH=/opt/rocm
-ENV ROCSHMEM_DIR=/opt/rocshmem
-
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    git clone --no-checkout --filter=blob:none ${ROCSHMEM_REPO} \
- && cd rocm-systems \
- && git sparse-checkout set --cone projects/rocshmem \
- && git checkout ${ROCSHMEM_BRANCH} \
- && mkdir -p projects/rocshmem/build \
- && cd projects/rocshmem/build \
- && CC="ccache gcc" CXX="ccache g++" INSTALL_PREFIX=${ROCSHMEM_DIR} \
-    bash ../scripts/build_configs/all_backends \
-      -DROCM_PATH=${ROCM_PATH} \
-      -DGPU_TARGETS="${DEEPEP_ROCM_ARCH}" \
-      -DUSE_EXTERNAL_MPI=OFF
-
-# DeepEP build stage - depends on ROCShmem, builds the HIP kernel wheel.
-FROM build_rocshmem AS build_deepep
-ARG DEEPEP_BRANCH="a9ea9774"
-ARG DEEPEP_REPO="https://github.com/ROCm/DeepEP.git"
-ARG DEEPEP_NIC="cx7"
-
-# Build DeepEP wheel. DeepEP looks for rocshmem at ROCSHMEM_DIR.
-# DeepEP only supports gfx942 and gfx950, so avoid gfx90a in the default list.
-RUN --mount=type=cache,target=/root/.cache/ccache \
-    export PYTORCH_ROCM_ARCH="gfx942;gfx950" \
- && git clone ${DEEPEP_REPO} \
- && cd DeepEP \
- && git checkout ${DEEPEP_BRANCH} \
- && LDFLAGS="-fuse-ld=mold" MAX_JOBS="${MAX_JOBS:-$(nproc)}" python3 setup.py --variant rocm --rocm-explicit-ctx --nic ${DEEPEP_NIC} bdist_wheel --dist-dir=/app/deep_install
-
 # MoRI runtime dependencies live in Dockerfile.rocm so NIC backend changes do
 # not force users to rebuild the long-lived Dockerfile.rocm_base image.
 FROM base AS mori_base
@@ -871,13 +750,6 @@ RUN if [ "${DEEPEP_NIC}" = "cx7" ] || [ "${DEEPEP_NIC}" = "io" ]; then \
     ninja && ninja install && ldconfig && rm -rf /tmp/rdma-core; \
 fi
 
-# Install RIXL + DeepEP wheels.
-RUN --mount=type=bind,from=build_rixl,src=/app/install,target=/rixl_install \
-    --mount=type=bind,from=build_deepep,src=/app/deep_install,target=/deep_install \
-    uv pip install --system /rixl_install/*.whl /deep_install/*.whl
-
-# Copy ROCShmem runtime libraries.
-COPY --from=build_rocshmem /opt/rocshmem /opt/rocshmem
 
 # RDMA userspace libraries plus FFmpeg dev libs needed by torchcodec.
 RUN apt-get update -q -y && apt-get install -q -y --no-install-recommends \
@@ -1001,10 +873,6 @@ RUN --mount=type=bind,from=export_vllm,src=/,target=/install \
     && uv pip install --system -r requirements/rocm.txt \
     && pip uninstall -y vllm \
     && uv pip install --system *.whl
-
-# Install RIXL wheel
-RUN --mount=type=bind,from=build_rixl,src=/app/install,target=/rixl_install \
-    uv pip install --system /rixl_install/*.whl
 
 ARG COMMON_WORKDIR
 ARG BASE_IMAGE

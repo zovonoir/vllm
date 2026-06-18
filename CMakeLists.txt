@@ -1362,19 +1362,6 @@ if(VLLM_GPU_LANG STREQUAL "HIP")
       "csrc/rocm/moe_q_gemm_rdna3.cu")
   endif()
 
-  # DeepSeek-V4 fused compressors are gfx950 (CDNA4)-only (native FP8/FP4 cvt).
-  # The .cu sources are multi-arch safe (gfx950 device pass real, others stub),
-  # but only built when gfx950 is among the targets.
-  set(VLLM_ROCM_HAS_GFX950 OFF)
-  if(VLLM_GPU_ARCHES MATCHES "gfx950")
-    set(VLLM_ROCM_HAS_GFX950 ON)
-    list(APPEND VLLM_ROCM_EXT_SRC
-      "csrc/rocm/dsv4_csa_compress.cu"
-      "csrc/rocm/dsv4_hca_compress.cu"
-      "csrc/rocm/dsv4_indexer_compress.cu"
-      "csrc/rocm/dsv4_compress_ops.cu")
-  endif()
-
   define_extension_target(
     _rocm_C
     DESTINATION vllm
@@ -1387,10 +1374,6 @@ if(VLLM_GPU_LANG STREQUAL "HIP")
 
   if(VLLM_ROCM_HAS_GFX1100)
     target_compile_definitions(_rocm_C PRIVATE VLLM_ROCM_GFX1100)
-  endif()
-
-  if(VLLM_ROCM_HAS_GFX950)
-    target_compile_definitions(_rocm_C PRIVATE VLLM_ROCM_GFX950)
   endif()
 endif()
 

@@ -563,7 +563,6 @@ COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/tests /tests
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/examples /examples
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/tools/install_torchcodec_rocm.sh /tools/install_torchcodec_rocm.sh
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/docker/Dockerfile.rocm /docker/
-COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/docker/dockerfile.rocm_new /docker/
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/.buildkite /.buildkite
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/pyproject.toml /pyproject.toml
 COPY --from=build_vllm ${COMMON_WORKDIR}/vllm/vllm/v1 /vllm_v1
@@ -880,10 +879,9 @@ ARG NIC_BACKEND
 ARG AINIC_VERSION
 COPY --from=fetch_vllm /tmp/vllm_commit.txt /tmp/vllm_commit.txt
 
-# Copy over the benchmark scripts as well
-COPY --from=export_vllm /benchmarks ${COMMON_WORKDIR}/vllm/benchmarks
-COPY --from=export_vllm /examples ${COMMON_WORKDIR}/vllm/examples
-COPY --from=export_vllm /docker ${COMMON_WORKDIR}/vllm/docker
+# Keep the full vLLM git checkout in the runtime image for debugging and
+# reproducibility. The installed package still comes from the wheel above.
+COPY --from=build_vllm ${COMMON_WORKDIR}/vllm ${COMMON_WORKDIR}/vllm
 
 # Use legacy IPC mode for HSA to avoid GPU memory pinning issues with UCX rocm_ipc
 # See: https://github.com/ROCm/rocm-libraries/issues/6266

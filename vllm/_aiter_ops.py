@@ -3881,6 +3881,7 @@ class rocm_aiter_ops:
         inv_rope_cos_sin_cache: torch.Tensor | None = None,
         out_mxfp8: tuple[torch.Tensor, torch.Tensor] | None = None,
         dot_precision: str | None = None,
+        extra_scrub_nan: bool = False,
     ) -> None:
         """Sparse MLA read straight from the KV cache, for prefill and decode.
 
@@ -3894,7 +3895,8 @@ class rocm_aiter_ops:
         compressed tokens here. inv_rope_positions and inv_rope_cos_sin_cache
         make the store apply the inverse RoPE; out_mxfp8 = (data, scale)
         replaces o with MXFP8 rows. dot_precision overrides the default
-        selected from q's dtype.
+        selected from q's dtype. extra_scrub_nan zeroes NaN values read from
+        the extra cache (DeepSeek V4 packed caches only).
         """
         from aiter.ops.triton.attention.sparse_mla import sparse_mla_fwd
 
@@ -3922,6 +3924,7 @@ class rocm_aiter_ops:
             inv_rope_positions=inv_rope_positions,
             inv_rope_cos_sin_cache=inv_rope_cos_sin_cache,
             out_mxfp8=out_mxfp8,
+            extra_scrub_nan=extra_scrub_nan,
         )
 
     @staticmethod

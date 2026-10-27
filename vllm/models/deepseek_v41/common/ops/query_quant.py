@@ -50,6 +50,9 @@ def _q_kv_norm_quant_kernel(
     KV_SIZE: tl.constexpr,
     BLOCK: tl.constexpr,
     LAUNCH_PDL: tl.constexpr,
+    # False: row-major [num_tokens, Q_SIZE // 32] scales and the scale rounding
+    # of vLLM's ROCm mxfp8_e4m3_quantize (the ROCm block32 GEMM's ABI).
+    SWIZZLED: tl.constexpr = True,
 ):
     row = tl.program_id(0).to(tl.int64)
     cols = tl.arange(0, BLOCK)
@@ -64,24 +67,39 @@ def _q_kv_norm_quant_kernel(
             y = y.to(q.dtype.element_ty).to(tl.float32)
             grouped = tl.reshape(y, (BLOCK // 32, 32))
             amax = tl.max(tl.abs(grouped), 1)
-            normalized = amax * (1.0 / 448.0)
-            bits = normalized.to(tl.uint32, bitcast=True)
-            exponent = (bits >> 23) & 255
-            mantissa = bits & 0x7FFFFF
-            bump = (mantissa != 0) & ~((exponent == 0) & (mantissa <= 0x400000))
-            sf = tl.minimum(exponent + bump, 254)
-            sf = tl.where(normalized <= 0, 0, sf)
-            # Match FlashInfer's UE8M0 conversion, including zero/subnormal scales.
-            inv_bits = tl.where(sf == 0, 0, (254 - sf) << 23)
-            inv_scale = inv_bits.to(tl.float32, bitcast=True)
+            if SWIZZLED:
+                normalized = amax * (1.0 / 448.0)
+                bits = normalized.to(tl.uint32, bitcast=True)
+                exponent = (bits >> 23) & 255
+                mantissa = bits & 0x7FFFFF
+                bump = (mantissa != 0) & ~((exponent == 0) & (mantissa <= 0x400000))
+                sf = tl.minimum(exponent + bump, 254)
+                sf = tl.where(normalized <= 0, 0, sf)
+                # Match FlashInfer's UE8M0 conversion, including zero/subnormal
+                # scales.
+                inv_bits = tl.where(sf == 0, 0, (254 - sf) << 23)
+                inv_scale = inv_bits.to(tl.float32, bitcast=True)
+            else:
+                amax = tl.maximum(amax, 1.1754943508222875e-38)
+                sbf = tl.ceil(tl.log2(amax / 448.0)) + 127.0
+                sbf = tl.minimum(tl.maximum(sbf, 0.0), 254.0)
+                sf = sbf.to(tl.uint32)
+                inv_scale = tl.exp2(127.0 - sbf)
             quantized = tl.reshape(grouped * inv_scale[:, None], (BLOCK,))
             tl.store(qo + row * Q_SIZE + cols, quantized, cols < Q_SIZE)
+            if not SWIZZLED:
+                tl.store(
+                    scales + row * (Q_SIZE // 32) + groups,
+                    sf.to(tl.uint8),
+                    groups < Q_SIZE // 32,
+                )
         else:
             sf = tl.full((BLOCK // 32,), 0, tl.uint32)
-        padded_groups: tl.constexpr = triton.cdiv(Q_SIZE // 32, 4) * 4
-        sf = tl.where(groups < Q_SIZE // 32, sf, 0)
-        offsets = mxfp8_scale_offset(row, groups, Q_SIZE // 32)
-        tl.store(scales + offsets, sf, groups < padded_groups)
+        if SWIZZLED:
+            padded_groups: tl.constexpr = triton.cdiv(Q_SIZE // 32, 4) * 4
+            sf = tl.where(groups < Q_SIZE // 32, sf, 0)
+            offsets = mxfp8_scale_offset(row, groups, Q_SIZE // 32)
+            tl.store(scales + offsets, sf, groups < padded_groups)
     elif row < num_tokens:
         y = _norm_row(kv, kvw, row, kv_stride, eps, KV_SIZE, BLOCK)
         tl.store(kvo + row * KV_SIZE + cols, y, cols < KV_SIZE)
@@ -94,7 +112,10 @@ def fused_q_kv_rmsnorm_quant(
     kv_weight: torch.Tensor,
     eps: float,
 ) -> tuple[QuantizedActivation, torch.Tensor]:
-    """Normalize Q/KV and quantize Q with FlashInfer's swizzled MXFP8 scales."""
+    """Normalize Q/KV and quantize Q to MXFP8.
+
+    CUDA writes FlashInfer's swizzled F8_128x4 scales; ROCm writes row-major
+    [tokens, q_size // 32] scales for the block32 GEMM."""
     assert qr.ndim == kv.ndim == 2 and qr.shape[0] == kv.shape[0]
     assert qr.stride(-1) == kv.stride(-1) == 1
     assert q_weight.is_contiguous() and kv_weight.is_contiguous()
@@ -103,14 +124,22 @@ def fused_q_kv_rmsnorm_quant(
     kv_size = kv.shape[1]
     qo = torch.empty(qr.shape, dtype=torch.float8_e4m3fn, device=qr.device)
     kvo = torch.empty(kv.shape, dtype=kv.dtype, device=kv.device)
-    padded_tokens = triton.cdiv(tokens, 128) * 128
-    scales = torch.empty(
-        mxfp8_scale_bytes(tokens, q_size), dtype=torch.uint8, device=qr.device
-    )
+    swizzled = current_platform.is_cuda()
+    if swizzled:
+        rows = triton.cdiv(tokens, 128) * 128
+        scales = torch.empty(
+            mxfp8_scale_bytes(tokens, q_size), dtype=torch.uint8, device=qr.device
+        )
+    else:
+        rows = tokens
+        scales = torch.empty(
+            (tokens, q_size // 32), dtype=torch.uint8, device=qr.device
+        )
     if tokens:
         block = triton.next_power_of_2(max(q_size, kv_size))
         launch_pdl = current_platform.is_arch_support_pdl()
-        _q_kv_norm_quant_kernel[(padded_tokens, 2)](
+        launch_opts = {"launch_pdl": launch_pdl} if swizzled else {}
+        _q_kv_norm_quant_kernel[(rows, 2)](
             qr,
             kv,
             q_weight,
@@ -126,14 +155,25 @@ def fused_q_kv_rmsnorm_quant(
             kv_size,
             block,
             launch_pdl,
+            SWIZZLED=swizzled,
             num_warps=8 if block >= 2048 else 4,
-            launch_pdl=launch_pdl,
+            **launch_opts,
         )
     return QuantizedActivation(qo, scales, qr.dtype, qr.shape, kMxfp8Dynamic), kvo
 
 
 def can_fuse_query_quant(linears: list[torch.nn.Module]) -> bool:
     """Require both local projections to use the same MXFP8 activation ABI."""
+    if current_platform.is_rocm():
+        from vllm.model_executor.kernels.linear.mxfp8.rocm_native import (
+            rocm_block32_mxfp8_consumer,
+        )
+
+        return all(
+            get_input_quant_key(linear) == kMxfp8Dynamic
+            and rocm_block32_mxfp8_consumer(linear)
+            for linear in linears
+        )
     if not current_platform.is_cuda():
         return False
     from vllm.model_executor.kernels.linear.mxfp8.flashinfer import (

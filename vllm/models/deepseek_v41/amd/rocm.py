@@ -83,20 +83,13 @@ def _trust_dsv4_extra_cache_nan_free(
     )
 
 
-def _aiter_sparse_mla_enabled(has_kv_transfer: bool) -> bool:
+def _aiter_sparse_mla_enabled() -> bool:
     from vllm._aiter_ops import rocm_aiter_ops
 
-    if not rocm_aiter_ops.is_triton_sparse_mla_enabled():
-        return False
-    # The aiter kernel does not scrub NaNs, so like the trust check above it
-    # needs a cache only the canonical writer has touched.
-    if has_kv_transfer:
-        logger.warning_once(
-            "VLLM_ROCM_USE_AITER_TRITON_SPARSE_MLA is ignored with a KV "
-            "connector; DeepSeek V4 keeps the Triton sparse attention."
-        )
-        return False
-    return True
+    # With a KV connector the extra cache may hold bytes the canonical writer
+    # never produced; the aiter kernel then scrubs NaNs from it like the
+    # Triton path does (see DeepseekV41ROCMAiterMLAAttention._aiter_sparse_mla).
+    return rocm_aiter_ops.is_triton_sparse_mla_enabled()
 
 
 def _build_indptr_from_lengths(lengths: torch.Tensor) -> torch.Tensor:
@@ -369,9 +362,7 @@ class DeepseekV41ROCMAiterSparseSWAMetadataBuilder(DeepseekV41SparseSWAMetadataB
             dtype=torch.int32,
             device=self.device,
         )
-        self._use_aiter_sparse_mla = _aiter_sparse_mla_enabled(
-            self.vllm_config.kv_transfer_config is not None
-        )
+        self._use_aiter_sparse_mla = _aiter_sparse_mla_enabled()
 
     def build(
         self,
@@ -664,7 +655,7 @@ class DeepseekV41ROCMAiterMLAAttention(DeepseekV4Attention):
                     "this rank; PP splits inside a v4.1 index-sharing group "
                     "are not supported."
                 )
-        self._use_aiter_sparse_mla = _aiter_sparse_mla_enabled(self._has_kv_transfer)
+        self._use_aiter_sparse_mla = _aiter_sparse_mla_enabled()
         if self.compressor is None and self.indexer is None:
             # Dense layers have nothing to overlap; keep the base serial path.
             self.aux_stream_list = None
@@ -1233,34 +1224,21 @@ class DeepseekV41ROCMAiterMLAAttention(DeepseekV4Attention):
         if self._use_aiter_sparse_mla:
             assert swa_metadata.decode_swa_ragged_indices is not None
             assert swa_metadata.decode_swa_ragged_indptr is not None
-            out = output
-            if output_mxfp8 is not None:
-                # The aiter kernel has no MXFP8 epilogue: write bf16 rows, then
-                # rotate and quantize them as the decode reduce would have.
-                out = self._mxfp8_bf16_rows(q.shape[0], q)
-            assert out is not None
             self._aiter_sparse_mla(
                 q,
-                out,
+                output,
                 self.swa_cache_layer.kv_cache,
                 swa_metadata.decode_swa_ragged_indices,
                 swa_metadata.decode_swa_ragged_indptr,
                 kv_cache,
                 topk_ragged_indices,
                 topk_ragged_indptr,
+                out_mxfp8=output_mxfp8,
+                inv_rope_positions=positions if output_mxfp8 is not None else None,
             )
-            if output_mxfp8 is not None:
-                rocm_inverse_rope_mxfp8_rows(
-                    out,
-                    positions,
-                    self.rotary_emb.cos_sin_cache,
-                    self.rope_head_dim,
-                    output_mxfp8[0],
-                    output_mxfp8[1],
-                )
-                return q.shape[0]
-            # The aiter kernel leaves the inverse RoPE to the caller.
-            return 0
+            # The MXFP8 epilogue rotates every row; the bf16 output is left to
+            # the caller's inverse RoPE.
+            return q.shape[0] if output_mxfp8 is not None else 0
 
         return rocm_sparse_attn_decode(
             q=q,
@@ -1571,18 +1549,22 @@ class DeepseekV41ROCMAiterMLAAttention(DeepseekV4Attention):
     def _aiter_sparse_mla(
         self,
         q: torch.Tensor,
-        output: torch.Tensor,
+        output: torch.Tensor | None,
         swa_k_cache: torch.Tensor,
         swa_indices: torch.Tensor,
         swa_indptr: torch.Tensor,
         compressed_k_cache: torch.Tensor | None,
         topk_indices: torch.Tensor | None,
         topk_indptr: torch.Tensor | None,
+        out_mxfp8: tuple[torch.Tensor, torch.Tensor] | None = None,
+        inv_rope_positions: torch.Tensor | None = None,
     ) -> None:
         from vllm._aiter_ops import rocm_aiter_ops
 
         # Both fp8 caches are read in place: the SWA window as the main segment,
-        # the top-k compressed tokens as the extra one.
+        # the top-k compressed tokens as the extra one. A cache a KV connector
+        # filled is not trusted NaN-free (cf. _trust_dsv4_extra_cache_nan_free),
+        # so the kernel zeroes NaN values it gathers from the extra cache.
         rocm_aiter_ops.triton_sparse_mla_fwd(
             q,
             swa_k_cache,
@@ -1594,4 +1576,10 @@ class DeepseekV41ROCMAiterMLAAttention(DeepseekV4Attention):
             extra_kv_buffer=compressed_k_cache,
             extra_kv_indptr=topk_indptr,
             extra_kv_indices=topk_indices,
+            extra_scrub_nan=self._has_kv_transfer and compressed_k_cache is not None,
+            out_mxfp8=out_mxfp8,
+            inv_rope_positions=inv_rope_positions,
+            inv_rope_cos_sin_cache=(
+                self.rotary_emb.cos_sin_cache if inv_rope_positions is not None else None
+            ),
         )

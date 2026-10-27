@@ -72,6 +72,14 @@ class SharedExperts(torch.nn.Module):
                 self._input_ready_event = [torch.cuda.Event(), torch.cuda.Event()]
                 self._output_ready_event = [torch.cuda.Event(), torch.cuda.Event()]
 
+        # MoRI dispatch is one blocking kernel (no async hook), so the aux-stream
+        # shared experts are launched right after it is enqueued, overlapping
+        # the expert GEMMs and the combine instead of competing with the
+        # router and top-k ahead of dispatch on the critical path.
+        self.launch_after_dispatch = (
+            self._stream is not None and moe_config.use_mori_kernels
+        )
+
     # TODO(bnell): Hack for elastic_ep. Get rid of this
     def _set_moe_config(self, new_moe_config: FusedMoEConfig):
         self.moe_config = new_moe_config
@@ -119,6 +127,13 @@ class SharedExperts(torch.nn.Module):
             return SharedExpertsOrder.MULTI_STREAM_OVERLAPPED
         else:
             return SharedExpertsOrder.NO_OVERLAP
+
+    def will_overlap(self, shared_experts_input: torch.Tensor) -> bool:
+        """Whether `maybe_forward_async` enqueues this input on the aux stream."""
+        return (
+            self._determine_shared_experts_order(shared_experts_input)
+            == SharedExpertsOrder.MULTI_STREAM_OVERLAPPED
+        )
 
     def maybe_forward_async(self, shared_experts_input: torch.Tensor) -> bool:
         """Enqueue shared experts on the aux stream without waiting for them.

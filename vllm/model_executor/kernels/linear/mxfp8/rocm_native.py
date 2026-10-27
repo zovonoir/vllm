@@ -13,6 +13,7 @@ import torch
 from torch.nn.parameter import Parameter
 
 import vllm.envs as envs
+from vllm.model_executor.layers.fusion.mxfp8_companion import get_mxfp8
 from vllm.model_executor.layers.fusion.quant_activation import (
     QuantizedActivation,
     as_quantized_activation,
@@ -316,7 +317,12 @@ class RocmDotScaledMxfp8LinearKernel(Mxfp8LinearKernel):
         x2d = x.reshape(-1, x.shape[-1])
         if layer.weight_scale.shape[0] != layer.weight.shape[0]:
             # One scale row per 32 weight rows (see process_weights_after_loading).
-            x_q, x_scale = mxfp8_e4m3_quantize(x2d)
+            pre = get_mxfp8(x)
+            if pre is not None:
+                x_q = pre[0].reshape(x2d.shape)
+                x_scale = pre[1].reshape(x2d.shape[0], -1)
+            else:
+                x_q, x_scale = mxfp8_e4m3_quantize(x2d)
             out = rocm_mxfp8_block32_gemm(
                 x_q, x_scale, layer.weight, layer.weight_scale, x.dtype
             )

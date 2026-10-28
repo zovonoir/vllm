@@ -13,11 +13,19 @@ import torch
 from torch.nn.parameter import Parameter
 
 import vllm.envs as envs
+from vllm.model_executor.layers.fusion.quant_activation import (
+    QuantizedActivation,
+    as_quantized_activation,
+)
 from vllm.model_executor.layers.quantization.utils.mxfp8_utils import (
     MXFP8_BLOCK_SIZE,
     MXFP8_SCALE_DTYPE,
     dequant_mxfp8_to_bf16,
     mxfp8_e4m3_quantize,
+)
+from vllm.model_executor.layers.quantization.utils.quant_utils import (
+    QuantKey,
+    kMxfp8Dynamic,
 )
 from vllm.platforms import current_platform
 from vllm.triton_utils import tl, triton
@@ -220,10 +228,26 @@ def _as_block32_scale(weight_scale: torch.Tensor) -> torch.Tensor | None:
     return blocks[:, 0].contiguous()
 
 
+def rocm_block32_mxfp8_consumer(layer: torch.nn.Module | None) -> bool:
+    """Whether ``layer`` runs the block32 GEMM and so takes a pre-quantized
+    MXFP8 activation: e4m3 data [M, K] and row-major E8M0 scales [M, K / 32]."""
+    method = getattr(layer, "quant_method", None)
+    return (
+        isinstance(getattr(method, "kernel", None), RocmDotScaledMxfp8LinearKernel)
+        and layer.weight.dim() == 2
+        and layer.weight_scale.shape[0] != layer.weight.shape[0]
+    )
+
+
 class RocmDotScaledMxfp8LinearKernel(Mxfp8LinearKernel):
     """Native CDNA4 (gfx950) MXFP8 linear via Triton ``tl.dot_scaled``."""
 
     supports_pre_processed_weights = True
+
+    def input_quant_key(self) -> QuantKey:
+        # Row-major [M, K / 32] E8M0 scales, as mxfp8_e4m3_quantize writes
+        # them; only the block32 path consumes them (rocm_block32_mxfp8_consumer).
+        return kMxfp8Dynamic
 
     @classmethod
     def is_supported(
@@ -264,7 +288,7 @@ class RocmDotScaledMxfp8LinearKernel(Mxfp8LinearKernel):
     def apply_weights(
         self,
         layer: torch.nn.Module,
-        x: torch.Tensor,
+        x: torch.Tensor | QuantizedActivation,
         bias: torch.Tensor | None = None,
     ) -> torch.Tensor:
         if layer.weight_scale.dtype != MXFP8_SCALE_DTYPE:
@@ -272,6 +296,22 @@ class RocmDotScaledMxfp8LinearKernel(Mxfp8LinearKernel):
                 f"Expected {MXFP8_SCALE_DTYPE} weight_scale, got "
                 f"{layer.weight_scale.dtype}."
             )
+        qa = as_quantized_activation(x, kMxfp8Dynamic)
+        if qa is not None:
+            assert layer.weight_scale.shape[0] != layer.weight.shape[0], (
+                "a pre-quantized MXFP8 activation needs the block32 GEMM"
+            )
+            K = qa.data.shape[-1]
+            out = rocm_mxfp8_block32_gemm(
+                qa.data.reshape(-1, K),
+                qa.scale.reshape(-1, K // MXFP8_BLOCK_SIZE),
+                layer.weight,
+                layer.weight_scale,
+                qa.orig_dtype,
+            )
+            out = out.reshape(*qa.orig_shape[:-1], layer.weight.shape[0])
+            return out if bias is None else out + bias
+        assert isinstance(x, torch.Tensor)
         out_shape = (*x.shape[:-1], layer.weight.shape[0])
         x2d = x.reshape(-1, x.shape[-1])
         if layer.weight_scale.shape[0] != layer.weight.shape[0]:

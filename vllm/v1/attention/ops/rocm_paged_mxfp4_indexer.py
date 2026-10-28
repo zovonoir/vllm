@@ -224,14 +224,16 @@ def _topk(
 ) -> None:
     """Top-k over each row's [0, lengths[row]); -1 pads rows shorter than k.
 
-    aiter's kernel is faster on the candidate top-k and from 128 rows on; below
-    that, a wide decode step is faster on vLLM's. Shape alone decides, so a FULL
-    graph replays the same choice at every context length.
+    aiter's kernel is faster on the candidate top-k and from 48 rows on (MI355X,
+    32K-wide rows: random, quantized and all-equal logits alike, e.g. 15 vs
+    17 us on 64 random rows of 25.6K and 60 vs 111 us when they all tie);
+    below that vLLM's is faster on long rows of ties. Shape alone decides, so
+    a FULL graph replays the same choice at every context length.
     """
     rows, width = logits.shape
     if rows == 0:
         return
-    if width >= k and (k >= 2048 or rows >= 128):
+    if width >= k and (k >= 2048 or rows >= 48):
         _aiter_topk()(
             logits,
             1,

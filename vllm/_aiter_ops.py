@@ -4947,12 +4947,15 @@ class rocm_aiter_ops:
         norm_weight: torch.Tensor,
         norm_eps: float,
         residual_out: torch.Tensor | None,
+        mxfp8_data: torch.Tensor | None = None,
+        mxfp8_scale: torch.Tensor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """:meth:`mhc_pre_delayed` with the RMSNorm of the collapse folded in.
 
         Runs aiter's fused Triton kernel ``mhc_fused_post_pre_delayed_rmsnorm``;
         the returned ``layer_input`` is already normalised with ``norm_weight`` /
-        ``norm_eps``.
+        ``norm_eps``. With ``mxfp8_data`` / ``mxfp8_scale`` the kernel also
+        writes ``layer_input`` MXFP8-quantized into them.
         """
         from aiter.ops.triton.fusions.mhc_fused_post_pre_delayed_rmsnorm import (
             mhc_fused_post_pre_delayed_rmsnorm,
@@ -4976,6 +4979,9 @@ class rocm_aiter_ops:
                 norm_weight,
                 norm_eps,
                 residual_out=residual_out,
+                mxfp8_out=(
+                    (mxfp8_data, mxfp8_scale) if mxfp8_data is not None else None
+                ),
             )
         )
         return post_mix, comb_mix, layer_input, next_pre_mix

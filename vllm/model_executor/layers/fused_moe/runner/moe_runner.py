@@ -893,12 +893,21 @@ class MoERunner(MoERunnerInterface):
         self.routed_experts._ensure_moe_quant_config_init()
 
         # If using multi-stream overlap for shared experts, we must launch it
-        # before routed expert dispatch.
+        # before routed expert dispatch, unless the modular kernel launches it
+        # right after a blocking (MoRI) dispatch.
         shared_experts_overlapping = False
         if self._shared_experts is not None:
-            shared_experts_overlapping = self._shared_experts.maybe_forward_async(
-                shared_experts_input
-            )
+            if (
+                self._shared_experts.launch_after_dispatch
+                and not self.routed_experts.quant_method.is_monolithic
+            ):
+                shared_experts_overlapping = self._shared_experts.will_overlap(
+                    shared_experts_input
+                )
+            else:
+                shared_experts_overlapping = self._shared_experts.maybe_forward_async(
+                    shared_experts_input
+                )
 
         # If the Runner holds the gate, apply it after the stream sync,
         # so it can run overlapped with the

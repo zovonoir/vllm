@@ -1531,6 +1531,16 @@ class FusedMoEKernelModularImpl:
             apply_router_weight_on_input,
         )
 
+        if (
+            shared_experts is not None
+            and shared_experts.launch_after_dispatch
+            and not self.prepare_finalize.supports_async()
+        ):
+            # The runner deferred the aux-stream launch to here, behind the
+            # blocking dispatch (see SharedExperts.launch_after_dispatch).
+            assert shared_experts_input is not None
+            shared_experts.maybe_forward_async(shared_experts_input)
+
         # Stash the original unquantized hidden states on the LoRA context
         # so apply_w13_lora sees correct-magnitude activations instead of
         # the potentially quantized values produced by _prepare().

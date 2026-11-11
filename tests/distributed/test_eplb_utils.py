@@ -9,6 +9,7 @@ import torch
 from vllm.distributed.eplb.eplb_state import (
     _commit_eplb_maps,
     _commit_eplb_maps_for_layer,
+    rank_load_imbalance,
 )
 
 
@@ -182,3 +183,21 @@ def test_commit_eplb_maps_for_layer_does_not_sync_host():
         _commit_eplb_maps_for_layer(model_state, new_phy2log, layer=0)
     finally:
         torch.cuda.set_sync_debug_mode(prev_mode)
+
+
+def test_rank_load_imbalance_is_per_layer():
+    # Two layers, two ranks, one expert per rank. Each layer puts all its load
+    # on one rank, a different one per layer: summing over layers first would
+    # call this balanced, but every layer waits for a rank holding all of it.
+    logical_loads = torch.tensor([[4.0, 0.0], [0.0, 4.0]])
+    identity = torch.tensor([[0, 1], [0, 1]])
+    assert rank_load_imbalance(identity, logical_loads, ep_size=2) == 2.0
+
+
+def test_rank_load_imbalance_splits_replica_load():
+    # Expert 0 is replicated on both ranks of a 1-layer, 2-rank, 2-slot setup.
+    logical_loads = torch.tensor([[6.0, 2.0, 0.0]])
+    phy2log = torch.tensor([[0, 1, 0, 2]])
+    # Rank loads: (3 + 2, 3 + 0) -> max 5 over mean 4.
+    assert rank_load_imbalance(phy2log, logical_loads, ep_size=2) == 1.25
+    assert rank_load_imbalance(phy2log, torch.zeros(1, 3), ep_size=2) == 1.0

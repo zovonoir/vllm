@@ -39,7 +39,12 @@ void topk_softplus_sqrt(
     const std::optional<torch::stable::Tensor>& tid2eid,
     const std::optional<torch::stable::Tensor>& is_padding,
     const std::optional<torch::stable::Tensor>& bias_vl,
-    int64_t image_sentinel_lo);
+    int64_t image_sentinel_lo,
+    const std::optional<torch::stable::Tensor>& eplb_logical_to_physical,
+    const std::optional<torch::stable::Tensor>& eplb_replica_count,
+    const std::optional<torch::stable::Tensor>& eplb_expert_load,
+    const std::optional<torch::stable::Tensor>& eplb_record_enabled,
+    const std::optional<torch::stable::Tensor>& eplb_num_unpadded_tokens);
 
 void moe_sum(torch::stable::Tensor& input, torch::stable::Tensor& output,
              std::optional<torch::stable::Tensor> topk_ids,

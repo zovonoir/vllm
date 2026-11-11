@@ -14,6 +14,7 @@ from vllm.model_executor.layers.fused_moe.config import (
 )
 from vllm.model_executor.layers.fused_moe.router.base_router import (
     BaseRouter,
+    eplb_map_to_physical_and_record,
     get_moe_padding_mask,
 )
 from vllm.model_executor.layers.fused_moe.router.dsv4_topk import (
@@ -23,6 +24,7 @@ from vllm.model_executor.layers.fused_moe.router.dsv4_topk import (
 from vllm.model_executor.layers.fused_moe.router.fused_topk_router import (
     _aiter_topk_gating_supported,
 )
+from vllm.v1.worker.ubatching import dbo_current_ubatch_id
 
 # AITER instantiates biased_grouped_topk only for these NUM_GRP values, with at
 # most this many experts per group.
@@ -86,7 +88,23 @@ def vllm_topk_softplus_sqrt(
     routed_scaling_factor: float = 1.0,
     bias_vl: torch.Tensor | None = None,
     image_sentinel_lo: int = 0,
+    eplb_state: EplbLayerState | None = None,
 ) -> tuple[torch.Tensor, ...]:
+    """With `eplb_state`, the kernel writes EPLB physical expert ids and
+    records the expert load (same rule as `eplb_map_to_physical_and_record`)."""
+    eplb_args = {}
+    if eplb_state is not None:
+        assert eplb_state.logical_to_physical_map is not None
+        assert eplb_state.num_unpadded_tokens_tensors is not None
+        eplb_args = dict(
+            eplb_logical_to_physical=eplb_state.logical_to_physical_map,
+            eplb_replica_count=eplb_state.logical_replica_count,
+            eplb_expert_load=eplb_state.expert_load_view,
+            eplb_record_enabled=eplb_state.should_record_tensor,
+            eplb_num_unpadded_tokens=eplb_state.num_unpadded_tokens_tensors[
+                dbo_current_ubatch_id()
+            ],
+        )
     ops.topk_hash_softplus_sqrt(
         topk_weights,
         topk_indices,
@@ -100,9 +118,36 @@ def vllm_topk_softplus_sqrt(
         is_padding=get_moe_padding_mask(topk_indices.shape[0]),
         bias_vl=bias_vl,
         image_sentinel_lo=image_sentinel_lo,
+        **eplb_args,
     )
 
     return topk_weights, topk_indices
+
+
+def _apply_eplb(
+    topk_weights: torch.Tensor,
+    topk_ids: torch.Tensor,
+    eplb_state: EplbLayerState | None,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Map logical to physical expert ids for routing paths whose kernel does
+    not do it itself."""
+    if eplb_state is None:
+        return topk_weights, topk_ids
+    assert eplb_state.expert_load_view is not None
+    assert eplb_state.logical_to_physical_map is not None
+    assert eplb_state.logical_replica_count is not None
+    assert eplb_state.should_record_tensor is not None
+    assert eplb_state.num_unpadded_tokens_tensors is not None
+    return topk_weights, eplb_map_to_physical_and_record(
+        topk_ids=topk_ids,
+        expert_load_view=eplb_state.expert_load_view,
+        logical_to_physical_map=eplb_state.logical_to_physical_map,
+        logical_replica_count=eplb_state.logical_replica_count,
+        record_enabled=eplb_state.should_record_tensor,
+        num_unpadded_tokens=eplb_state.num_unpadded_tokens_tensors[
+            dbo_current_ubatch_id()
+        ],
+    )
 
 
 @functools.lru_cache(maxsize=8)
@@ -154,7 +199,10 @@ def fused_topk_bias(
     routed_scaling_factor: float = 1.0,
     bias_vl: torch.Tensor | None = None,
     image_sentinel_lo: int = 0,
+    eplb_state: EplbLayerState | None = None,
 ):
+    """With `eplb_state`, the returned ids are EPLB physical experts and the
+    expert load is recorded."""
     if (
         input_tokens is not None
         and hash_indices_table is not None
@@ -187,15 +235,18 @@ def fused_topk_bias(
             )
         ):
             assert e_score_correction_bias is not None
-            return dsv4_topk(
-                gating_output,
-                e_score_correction_bias,
-                output_indices_dtype,
-                routed_scaling_factor,
-                is_padding=padding_mask,
-                input_ids=input_tokens,
-                bias_vl=bias_vl,
-                image_sentinel_lo=image_sentinel_lo,
+            return _apply_eplb(
+                *dsv4_topk(
+                    gating_output,
+                    e_score_correction_bias,
+                    output_indices_dtype,
+                    routed_scaling_factor,
+                    is_padding=padding_mask,
+                    input_ids=input_tokens,
+                    bias_vl=bias_vl,
+                    image_sentinel_lo=image_sentinel_lo,
+                ),
+                eplb_state,
             )
 
         M, _ = hidden_states.size()
@@ -224,7 +275,7 @@ def fused_topk_bias(
             )
             if routed_scaling_factor != 1.0:
                 topk_weights *= routed_scaling_factor
-            return topk_weights, topk_ids
+            return _apply_eplb(topk_weights, topk_ids, eplb_state)
         elif scoring_func == "sigmoid":
             topk_weights, topk_ids = vllm_topk_sigmoid(
                 topk_weights,
@@ -235,7 +286,7 @@ def fused_topk_bias(
                 e_score_correction_bias,
                 routed_scaling_factor,
             )
-            return topk_weights, topk_ids
+            return _apply_eplb(topk_weights, topk_ids, eplb_state)
         elif scoring_func == "sqrtsoftplus":
             return vllm_topk_softplus_sqrt(
                 topk_weights,
@@ -249,6 +300,7 @@ def fused_topk_bias(
                 routed_scaling_factor,
                 bias_vl=bias_vl,
                 image_sentinel_lo=image_sentinel_lo,
+                eplb_state=eplb_state,
             )
         else:
             raise ValueError(f"Unsupported scoring function: {scoring_func}")
@@ -278,7 +330,7 @@ def fused_topk_bias(
             )
             if routed_scaling_factor != 1.0:
                 topk_weights *= routed_scaling_factor
-            return topk_weights, topk_ids
+            return _apply_eplb(topk_weights, topk_ids, eplb_state)
 
     if (
         scoring_func in ("softmax", "sigmoid")
@@ -316,7 +368,7 @@ def fused_topk_bias(
                 correction_bias=e_score_correction_bias,
                 routed_scaling_factor=routed_scaling_factor,
             )
-            return topk_weights, topk_ids
+            return _apply_eplb(topk_weights, topk_ids, eplb_state)
 
     if scoring_func == "sqrtsoftplus":
         output_indices_dtype = torch.int32 if indices_type is None else indices_type
@@ -330,15 +382,18 @@ def fused_topk_bias(
             renormalize,
             output_indices_dtype,
         ):
-            return dsv4_topk(
-                gating_output,
-                e_score_correction_bias,
-                output_indices_dtype,
-                routed_scaling_factor,
-                is_padding=get_moe_padding_mask(gating_output.shape[0]),
-                input_ids=input_tokens,
-                bias_vl=bias_vl,
-                image_sentinel_lo=image_sentinel_lo,
+            return _apply_eplb(
+                *dsv4_topk(
+                    gating_output,
+                    e_score_correction_bias,
+                    output_indices_dtype,
+                    routed_scaling_factor,
+                    is_padding=get_moe_padding_mask(gating_output.shape[0]),
+                    input_ids=input_tokens,
+                    bias_vl=bias_vl,
+                    image_sentinel_lo=image_sentinel_lo,
+                ),
+                eplb_state,
             )
         M = hidden_states.size(0)
         topk_weights = torch.empty(
@@ -365,6 +420,7 @@ def fused_topk_bias(
             routed_scaling_factor,
             bias_vl=bias_vl,
             image_sentinel_lo=image_sentinel_lo,
+            eplb_state=eplb_state,
         )
 
     n_routed_experts = gating_output.shape[-1]
@@ -424,8 +480,10 @@ def fused_topk_bias(
     topk_weights = topk_weights.to(torch.float32)
     if routed_scaling_factor != 1.0:
         topk_weights *= routed_scaling_factor
-    return topk_weights, topk_indices.to(
-        torch.int32 if indices_type is None else indices_type
+    return _apply_eplb(
+        topk_weights,
+        topk_indices.to(torch.int32 if indices_type is None else indices_type),
+        eplb_state,
     )
 
 

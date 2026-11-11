@@ -50,6 +50,37 @@ typedef __hip_bfloat162 __nv_bfloat162;
 namespace vllm {
 namespace moe {
 
+// EPLB logical-to-physical expert mapping and load recording, fused into the
+// topk write. Same replica choice and recording rule as eplb_map_and_record in
+// vllm/model_executor/layers/fused_moe/eplb_triton.py. Inert when
+// logical_to_physical is null.
+struct EplbArgs {
+  const int64_t* logical_to_physical = nullptr;  // [num_experts, map_stride]
+  const int64_t* replica_count = nullptr;        // [num_experts]
+  int* expert_load = nullptr;                    // [num_physical]
+  const bool* record_enabled = nullptr;          // scalar
+  const int* num_unpadded_tokens = nullptr;      // scalar, or null: all rows
+  int64_t map_stride = 0;
+  int num_physical = 0;
+};
+
+__device__ __forceinline__ int eplbMapAndRecord(const EplbArgs& eplb,
+                                                int expert, int row) {
+  const int64_t replicas = eplb.replica_count[expert];
+  // floor(2^32 / phi), the Knuth multiplicative hash of the Triton kernel.
+  const uint64_t hashed =
+      (static_cast<uint64_t>(row) * 2654435769ULL) & 0xFFFFFFFFULL;
+  const int physical = static_cast<int>(
+      eplb.logical_to_physical[expert * eplb.map_stride +
+                               static_cast<int64_t>(hashed % replicas)]);
+  if (*eplb.record_enabled && physical >= 0 && physical < eplb.num_physical &&
+      (eplb.num_unpadded_tokens == nullptr ||
+       row < *eplb.num_unpadded_tokens)) {
+    atomicAdd(eplb.expert_load + physical, 1);
+  }
+  return physical;
+}
+
 template <typename HashIndType>
 __device__ __forceinline__ int64_t load_index_as_int64(const HashIndType* ptr,
                                                        int64_t offset) {
@@ -255,8 +286,8 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE_PARAM) __global__
         const int start_expert, const int end_expert, const bool renormalize,
         double routed_scaling_factor, const float* correction_bias,
         const HashIndType* input_ids, const HashIndType* tid2eid,
-        const bool* is_padding, const float* bias_vl,
-        int64_t image_sentinel_lo) {
+        const bool* is_padding, const float* bias_vl, int64_t image_sentinel_lo,
+        const EplbArgs eplb) {
   static_assert(std::is_same_v<InputType, float> ||
                     std::is_same_v<InputType, __nv_bfloat16> ||
                     std::is_same_v<InputType, __half>,
@@ -453,8 +484,14 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE_PARAM) __global__
                                group_id * THREADS_PER_ROW * ELTS_PER_LDG +
                                local_id;
         if (expert == expert_idx) {
-          indices[idx] = !is_pad_row ? static_cast<IndType>(expert)
-                                     : static_cast<IndType>(-1);
+          if (is_pad_row) {
+            indices[idx] = static_cast<IndType>(-1);
+          } else if (eplb.logical_to_physical != nullptr) {
+            indices[idx] =
+                static_cast<IndType>(eplbMapAndRecord(eplb, expert, thread_row));
+          } else {
+            indices[idx] = static_cast<IndType>(expert);
+          }
           selected_sum += row_chunk[ii];
           break;
         }
@@ -588,8 +625,14 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE_PARAM) __global__
           max_val -= row_bias[expert];
         }
         output[idx] = max_val;
-        indices[idx] =
-            !is_pad_row ? expert - start_expert : static_cast<IndType>(-1);
+        if (is_pad_row) {
+          indices[idx] = static_cast<IndType>(-1);
+        } else if (eplb.logical_to_physical != nullptr) {
+          indices[idx] =
+              static_cast<IndType>(eplbMapAndRecord(eplb, expert, thread_row));
+        } else {
+          indices[idx] = expert - start_expert;
+        }
         source_rows[idx] = k_idx * num_rows + thread_row;
         if (renormalize) {
           selected_sum += max_val;
@@ -673,7 +716,7 @@ void topkGatingSoftplusSqrtLauncherHelper(
     double routed_scaling_factor, const float* correction_bias,
     const bool use_hash, const HashIndType* input_ids,
     const HashIndType* tid2eid, cudaStream_t stream, const bool* is_padding,
-    const float* bias_vl, int64_t image_sentinel_lo) {
+    const float* bias_vl, int64_t image_sentinel_lo, const EplbArgs& eplb) {
   static constexpr int BYTES_PER_LDG =
       MIN(MAX_BYTES_PER_LDG, sizeof(InputType) * EXPERTS);
   using Constants =
@@ -703,12 +746,12 @@ void topkGatingSoftplusSqrtLauncherHelper(
                        indices, source_row, k, start_expert, end_expert,
                        renormalize, routed_scaling_factor, correction_bias,
                        input_ids, tid2eid, is_padding, bias_vl,
-                       image_sentinel_lo);
+                       image_sentinel_lo, eplb);
 #else
     kernel<<<num_blocks, block_dim, 0, stream>>>(
         input, finished, output, num_rows, indices, source_row, k, start_expert,
         end_expert, renormalize, routed_scaling_factor, correction_bias,
-        input_ids, tid2eid, is_padding, bias_vl, image_sentinel_lo);
+        input_ids, tid2eid, is_padding, bias_vl, image_sentinel_lo, eplb);
 #endif
   })
 }
@@ -723,7 +766,7 @@ void topkGatingSoftplusSqrtLauncherHelper(
       gating_output, nullptr, topk_weights, topk_indices,                     \
       token_expert_indices, num_tokens, topk, 0, num_experts, renormalize,    \
       routed_scaling_factor, correction_bias, use_hash, input_ids, tid2eid,   \
-      stream, is_padding, bias_vl, image_sentinel_lo);
+      stream, is_padding, bias_vl, image_sentinel_lo, eplb);
 
 #ifndef USE_ROCM
   #define LAUNCH_SOFTPLUS_SQRT(NUM_EXPERTS, WARPS_PER_TB, MAX_BYTES)       \
@@ -766,10 +809,12 @@ void topkGatingSoftplusSqrtKernelLauncher(
     const float* correction_bias, const bool use_hash,
     const HashIndType* input_ids, const HashIndType* tid2eid,
     cudaStream_t stream, const bool* is_padding, const float* bias_vl,
-    int64_t image_sentinel_lo) {
+    int64_t image_sentinel_lo, const EplbArgs& eplb) {
 #ifndef USE_ROCM
   if constexpr (std::is_same_v<InputType, float>) {
+    // The DSv4 hash kernel does not map to EPLB physical experts.
     if (use_hash && topk == 6 && renormalize &&
+        eplb.logical_to_physical == nullptr &&
         (num_experts == 256 || num_experts == 384)) {
       launchDsv4HashTopk<IndType, HashIndType>(
           gating_output, topk_weights, topk_indices, num_tokens, num_experts,
@@ -892,7 +937,7 @@ void topkGatingSoftplusSqrtKernelLauncher(
       const InputType*, float*, IndType*, int*, const int, const int,         \
       const int, const bool, double, const float*, const bool,                \
       const HashIndType*, const HashIndType*, cudaStream_t, const bool*,      \
-      const float*, int64_t);
+      const float*, int64_t, const EplbArgs&);
 
 #define VLLM_TOPK_SOFTPLUS_SQRT_EXTERN(IndType, InputType, HashIndType) \
   VLLM_TOPK_SOFTPLUS_SQRT_DECLARE(extern, IndType, InputType, HashIndType)

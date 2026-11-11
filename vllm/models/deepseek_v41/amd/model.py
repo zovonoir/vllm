@@ -102,6 +102,8 @@ class DeepseekV4MoE(DeepseekV4MoEBase):
     # TODO: revert once https://github.com/ROCm/aiter/pull/6598 is in the
     # pinned AITER; with the padding set, its FlyDSL MoE can output NaN.
     experts_intermediate_pad = 0
+    # DeepseekV4MixtureOfExperts registers the MegaMoE layers with EPLB.
+    supports_mega_moe_eplb = True
 
     def __init__(
         self,
@@ -160,7 +162,12 @@ class DeepseekV4MoE(DeepseekV4MoEBase):
         # so logical and physical expert counts are identical.
         self.n_logical_experts = self.n_routed_experts
         self.n_physical_experts = self.n_routed_experts
-        self.n_local_physical_experts = self.n_local_experts
+        # MegaMoE shards the routed experts over EP, not TP.
+        self.n_local_physical_experts = (
+            self.experts.num_routed_local_experts
+            if self.use_mega_moe
+            else self.n_local_experts
+        )
         self.n_redundant_experts = 0
 
 

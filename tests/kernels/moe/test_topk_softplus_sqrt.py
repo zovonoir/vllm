@@ -775,3 +775,92 @@ def test_dsv4_fast_topk_bias_vl():
     assert topk_ids.dtype == torch.int64
     torch.testing.assert_close(topk_ids_ref.to(torch.int64), topk_ids, atol=0, rtol=0)
     torch.testing.assert_close(topk_weights_ref, topk_weights, atol=2e-5, rtol=2e-5)
+
+
+@pytest.mark.skipif(
+    not current_platform.is_cuda_alike(),
+    reason="This test is skipped on non-CUDA platform.",
+)
+@pytest.mark.parametrize("use_hash", [False, True])
+@pytest.mark.parametrize("record", [True, False])
+def test_topk_softplus_sqrt_eplb_matches_triton_mapping(use_hash: bool, record: bool):
+    """EPLB fused into the topk kernel equals topk followed by the Triton
+    mapping: same physical ids (replicas picked by the token hash) and the same
+    load, recorded for unpadded rows only; padding rows stay -1."""
+    from vllm.model_executor.layers.fused_moe.router.base_router import (
+        eplb_map_to_physical_and_record,
+    )
+
+    torch.manual_seed(0)
+    num_tokens, num_experts, topk, vocab, slots = 70, 384, 6, 512, 2
+    num_unpadded = 50
+    gating = torch.randn(num_tokens, num_experts, device="cuda")
+    bias = torch.randn(num_experts, device="cuda")
+    input_ids = torch.randint(0, vocab, (num_tokens,), device="cuda")
+    tid2eid = (
+        torch.stack([torch.randperm(num_experts)[:topk] for _ in range(vocab)]).to(
+            device="cuda", dtype=torch.long
+        )
+        if use_hash
+        else None
+    )
+    is_padding = torch.zeros(num_tokens, dtype=torch.bool, device="cuda")
+    is_padding[60:] = True
+    # Every logical expert has one or two physical replicas over 384 + 64 slots.
+    num_physical = num_experts + 64
+    replicas = torch.ones(num_experts, dtype=torch.long, device="cuda")
+    replicas[:64] = 2
+    log2phy = torch.full((num_experts, slots), -1, dtype=torch.long, device="cuda")
+    perm = torch.randperm(num_physical, device="cuda")
+    log2phy[:, 0] = perm[:num_experts]
+    log2phy[:64, 1] = perm[num_experts:]
+    record_enabled = torch.tensor(record, device="cuda")
+    unpadded = torch.tensor(num_unpadded, dtype=torch.int32, device="cuda")
+
+    def topk_op(**eplb):
+        weights = torch.empty(num_tokens, topk, device="cuda")
+        ids = torch.empty(num_tokens, topk, dtype=torch.int32, device="cuda")
+        ops.topk_hash_softplus_sqrt(
+            weights,
+            ids,
+            torch.empty_like(ids),
+            gating,
+            True,
+            2.5,
+            None if use_hash else bias,
+            input_ids if use_hash else None,
+            tid2eid,
+            is_padding=is_padding,
+            **eplb,
+        )
+        return weights, ids
+
+    ref_weights, ref_ids = topk_op()
+    ref_load = torch.zeros(num_physical, dtype=torch.int32, device="cuda")
+    ref_ids = eplb_map_to_physical_and_record(
+        topk_ids=ref_ids,
+        expert_load_view=ref_load,
+        logical_to_physical_map=log2phy,
+        logical_replica_count=replicas,
+        record_enabled=record_enabled,
+        num_unpadded_tokens=unpadded,
+    )
+
+    load = torch.zeros(num_physical, dtype=torch.int32, device="cuda")
+    weights, ids = topk_op(
+        eplb_logical_to_physical=log2phy,
+        eplb_replica_count=replicas,
+        eplb_expert_load=load,
+        eplb_record_enabled=record_enabled,
+        eplb_num_unpadded_tokens=unpadded,
+    )
+    torch.testing.assert_close(ids, ref_ids, atol=0, rtol=0)
+    torch.testing.assert_close(weights, ref_weights, atol=0, rtol=0)
+    torch.testing.assert_close(load, ref_load, atol=0, rtol=0)
+    assert (ids[60:] == -1).all()
+    # Replicated experts spread over both replicas.
+    assert torch.isin(ids[:60], perm[num_experts:]).any()
+    if record:
+        assert int(load.sum()) == num_unpadded * topk
+    else:
+        assert int(load.sum()) == 0

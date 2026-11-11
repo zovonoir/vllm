@@ -35,7 +35,7 @@ void dispatch_topk_softplus_sqrt_launch(
     const std::optional<torch::stable::Tensor>& tid2eid, cudaStream_t stream,
     const std::optional<torch::stable::Tensor>& is_padding,
     const std::optional<torch::stable::Tensor>& bias_vl,
-    int64_t image_sentinel_lo) {
+    int64_t image_sentinel_lo, const vllm::moe::EplbArgs& eplb) {
   const float* bias_ptr = nullptr;
   if (correction_bias.has_value()) {
     bias_ptr = correction_bias.value().const_data_ptr<float>();
@@ -91,7 +91,7 @@ void dispatch_topk_softplus_sqrt_launch(
             num_tokens, num_experts, topk, renormalize, routed_scaling_factor,
             bias_ptr, true, input_ids.value().const_data_ptr<int64_t>(),
             tid2eid.value().const_data_ptr<int64_t>(), stream, is_padding_ptr,
-            bias_vl_ptr, image_sentinel_lo);
+            bias_vl_ptr, image_sentinel_lo, eplb);
       } else {
         STD_TORCH_CHECK(tid2eid.value().scalar_type() ==
                         torch::headeronly::ScalarType::Int);
@@ -102,7 +102,7 @@ void dispatch_topk_softplus_sqrt_launch(
             num_tokens, num_experts, topk, renormalize, routed_scaling_factor,
             bias_ptr, true, input_ids.value().const_data_ptr<int>(),
             tid2eid.value().const_data_ptr<int>(), stream, is_padding_ptr,
-            bias_vl_ptr, image_sentinel_lo);
+            bias_vl_ptr, image_sentinel_lo, eplb);
       }
     } else if (bias_vl_ptr != nullptr) {
       // Non-hash rows with bias_vl: image tokens (five sentinel ids starting
@@ -118,7 +118,7 @@ void dispatch_topk_softplus_sqrt_launch(
             num_tokens, num_experts, topk, renormalize, routed_scaling_factor,
             bias_ptr, false, input_ids.value().const_data_ptr<int64_t>(),
             static_cast<const int64_t*>(nullptr), stream, is_padding_ptr,
-            bias_vl_ptr, image_sentinel_lo);
+            bias_vl_ptr, image_sentinel_lo, eplb);
       } else {
         STD_TORCH_CHECK(input_ids.value().scalar_type() ==
                         torch::headeronly::ScalarType::Int);
@@ -129,7 +129,7 @@ void dispatch_topk_softplus_sqrt_launch(
             num_tokens, num_experts, topk, renormalize, routed_scaling_factor,
             bias_ptr, false, input_ids.value().const_data_ptr<int>(),
             static_cast<const int*>(nullptr), stream, is_padding_ptr,
-            bias_vl_ptr, image_sentinel_lo);
+            bias_vl_ptr, image_sentinel_lo, eplb);
       }
     } else {
       vllm::moe::topkGatingSoftplusSqrtKernelLauncher<OutIndType, ComputeType>(
@@ -138,7 +138,7 @@ void dispatch_topk_softplus_sqrt_launch(
           num_tokens, num_experts, topk, renormalize, routed_scaling_factor,
           bias_ptr, false, static_cast<const OutIndType*>(nullptr),
           static_cast<const OutIndType*>(nullptr), stream, is_padding_ptr,
-          nullptr, 0);
+          nullptr, 0, eplb);
     }
   };
 
@@ -165,7 +165,12 @@ void topk_softplus_sqrt(
     const std::optional<torch::stable::Tensor>& tid2eid,
     const std::optional<torch::stable::Tensor>& is_padding,
     const std::optional<torch::stable::Tensor>& bias_vl,
-    int64_t image_sentinel_lo) {
+    int64_t image_sentinel_lo,
+    const std::optional<torch::stable::Tensor>& eplb_logical_to_physical,
+    const std::optional<torch::stable::Tensor>& eplb_replica_count,
+    const std::optional<torch::stable::Tensor>& eplb_expert_load,
+    const std::optional<torch::stable::Tensor>& eplb_record_enabled,
+    const std::optional<torch::stable::Tensor>& eplb_num_unpadded_tokens) {
   const int num_experts = gating_output.size(-1);
   const auto num_tokens = gating_output.numel() / num_experts;
   const int topk = topk_weights.size(-1);
@@ -174,26 +179,73 @@ void topk_softplus_sqrt(
   const cudaStream_t stream =
       get_current_cuda_stream(gating_output.get_device_index());
 
+  // EPLB: write physical expert ids and record the load in the topk kernel.
+  vllm::moe::EplbArgs eplb;
+  if (eplb_logical_to_physical.has_value()) {
+    const torch::stable::Tensor& log2phy = eplb_logical_to_physical.value();
+    STD_TORCH_CHECK(eplb_replica_count.has_value() &&
+                        eplb_expert_load.has_value() &&
+                        eplb_record_enabled.has_value(),
+                    "EPLB mapping needs the replica count, expert load and "
+                    "record flag");
+    const torch::stable::Tensor& replicas = eplb_replica_count.value();
+    const torch::stable::Tensor& load = eplb_expert_load.value();
+    const torch::stable::Tensor& record = eplb_record_enabled.value();
+    STD_TORCH_CHECK(
+        log2phy.scalar_type() == torch::headeronly::ScalarType::Long &&
+            log2phy.dim() == 2 && log2phy.size(0) == num_experts &&
+            log2phy.stride(1) == 1,
+        "eplb_logical_to_physical must be int64 [num_experts, slots] with "
+        "contiguous rows");
+    STD_TORCH_CHECK(
+        replicas.scalar_type() == torch::headeronly::ScalarType::Long &&
+            replicas.numel() == num_experts && replicas.is_contiguous(),
+        "eplb_replica_count must be contiguous int64 [num_experts]");
+    STD_TORCH_CHECK(load.scalar_type() == torch::headeronly::ScalarType::Int &&
+                        load.is_contiguous(),
+                    "eplb_expert_load must be contiguous int32");
+    STD_TORCH_CHECK(
+        record.scalar_type() == torch::headeronly::ScalarType::Bool &&
+            record.numel() == 1,
+        "eplb_record_enabled must be a bool scalar");
+    eplb.logical_to_physical = log2phy.const_data_ptr<int64_t>();
+    eplb.replica_count = replicas.const_data_ptr<int64_t>();
+    eplb.expert_load = load.mutable_data_ptr<int>();
+    eplb.record_enabled = record.const_data_ptr<bool>();
+    eplb.map_stride = log2phy.stride(0);
+    eplb.num_physical = load.numel();
+    if (eplb_num_unpadded_tokens.has_value()) {
+      const torch::stable::Tensor& unpadded = eplb_num_unpadded_tokens.value();
+      STD_TORCH_CHECK(
+          unpadded.scalar_type() == torch::headeronly::ScalarType::Int &&
+              unpadded.numel() == 1,
+          "eplb_num_unpadded_tokens must be an int32 scalar");
+      eplb.num_unpadded_tokens = unpadded.const_data_ptr<int>();
+    }
+  }
+
   if (gating_output.scalar_type() == torch::headeronly::ScalarType::Float) {
     dispatch_topk_softplus_sqrt_launch<float>(
         gating_output.const_data_ptr<float>(), topk_weights, topk_indices,
         token_expert_indices, num_tokens, num_experts, topk, renormalize,
         routed_scaling_factor, correction_bias, input_ids, tid2eid, stream,
-        is_padding, bias_vl, image_sentinel_lo);
+        is_padding, bias_vl, image_sentinel_lo, eplb);
   } else if (gating_output.scalar_type() ==
              torch::headeronly::ScalarType::Half) {
     dispatch_topk_softplus_sqrt_launch<__half>(
         reinterpret_cast<const __half*>(gating_output.const_data_ptr()),
         topk_weights, topk_indices, token_expert_indices, num_tokens,
         num_experts, topk, renormalize, routed_scaling_factor, correction_bias,
-        input_ids, tid2eid, stream, is_padding, bias_vl, image_sentinel_lo);
+        input_ids, tid2eid, stream, is_padding, bias_vl, image_sentinel_lo,
+        eplb);
   } else if (gating_output.scalar_type() ==
              torch::headeronly::ScalarType::BFloat16) {
     dispatch_topk_softplus_sqrt_launch<__nv_bfloat16>(
         reinterpret_cast<const __nv_bfloat16*>(gating_output.const_data_ptr()),
         topk_weights, topk_indices, token_expert_indices, num_tokens,
         num_experts, topk, renormalize, routed_scaling_factor, correction_bias,
-        input_ids, tid2eid, stream, is_padding, bias_vl, image_sentinel_lo);
+        input_ids, tid2eid, stream, is_padding, bias_vl, image_sentinel_lo,
+        eplb);
   } else {
     STD_TORCH_CHECK(false, "Unsupported gating_output data type: ",
                     gating_output.scalar_type());

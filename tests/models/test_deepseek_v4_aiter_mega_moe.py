@@ -15,6 +15,7 @@ from vllm.model_executor.layers.quantization.utils.config_utils import (
     is_shared_expert_quant_fse_compatible,
 )
 from vllm.models.deepseek_v4.amd import mega_moe as mega_moe_module
+from vllm.models.deepseek_v4.amd import model as amd_model_module
 from vllm.models.deepseek_v4.amd.mega_moe import (
     DeepseekV4AiterMegaMoEExperts,
 )
@@ -171,6 +172,108 @@ def test_mega_moe_shared_expert_fusion_requires_mxfp4_target(
         moe_backend=moe_backend,
     )
     assert compatible is fused
+
+
+@pytest.mark.cpu_test
+@pytest.mark.parametrize("fuse_shared_expert", [False, True])
+def test_eplb_weight_views_alias_routed_slots(monkeypatch, fuse_shared_expert):
+    experts = _make_experts(
+        monkeypatch, ep_size=2, num_experts=4, fuse_shared_expert=fuse_shared_expert
+    )
+    experts._runtimes = [(128, "runtime")]
+    params = (
+        experts.w13_weight,
+        experts.w13_weight_scale,
+        experts.w2_weight,
+        experts.w2_weight_scale,
+    )
+    views = experts.get_expert_weights()
+    assert len(views) == len(params)
+    for view, param in zip(views, params):
+        # One contiguous row per routed expert; the shared slot is not offered.
+        assert view.shape == (2, param.data[0].numel())
+        assert view.is_contiguous()
+        # EPLB writes a moved expert into its row in place.
+        view[1].fill_(7)
+        assert (param.data[1] == 7).all() and (param.data[0] == 0).all()
+        if fuse_shared_expert:
+            assert (param.data[2] == 0).all()
+
+
+@pytest.mark.cpu_test
+@pytest.mark.parametrize(
+    "supports_eplb, num_redundant, error",
+    [
+        (False, 0, "only for DeepSeek-V4.1"),
+        (True, 8, "num_redundant_experts=0"),
+        (True, 0, None),
+    ],
+)
+def test_mega_moe_eplb_config_validation(
+    monkeypatch, supports_eplb, num_redundant, error
+):
+    monkeypatch.setattr(
+        amd_model_module.rocm_aiter_ops, "is_fused_moe_enabled", lambda: True
+    )
+    monkeypatch.setattr(amd_model_module, "on_gfx950", lambda: True)
+    vllm_config = SimpleNamespace(
+        parallel_config=SimpleNamespace(
+            enable_expert_parallel=True,
+            tensor_parallel_size=1,
+            pipeline_parallel_size=1,
+            all2all_backend="mori",
+            mori_ep_v2=False,
+            enable_eplb=True,
+            eplb_config=SimpleNamespace(num_redundant_experts=num_redundant),
+        ),
+        model_config=SimpleNamespace(hf_config=SimpleNamespace(expert_dtype="fp4")),
+    )
+    validate = amd_model_module._validate_aiter_mega_moe_config
+    if error is None:
+        validate(vllm_config, supports_eplb)
+    else:
+        with pytest.raises(NotImplementedError, match=error):
+            validate(vllm_config, supports_eplb)
+
+
+@pytest.mark.skipif(not current_platform.is_rocm(), reason="Requires ROCm")
+def test_eplb_maps_to_physical_and_records_unpadded_load(monkeypatch):
+    num_experts, num_tokens, num_unpadded = 384, 37, 30
+    experts = _make_experts(monkeypatch, ep_size=8, num_experts=num_experts)
+    ids = torch.randint(0, num_experts, (num_tokens, 2), device="cuda")
+    ids = ids.to(torch.int32)
+    # Without EPLB the ids pass through.
+    assert experts.map_to_physical(ids) is ids
+
+    perm = torch.randperm(num_experts, device="cuda")
+    load = torch.zeros(1, num_experts, dtype=torch.int32, device="cuda")
+    experts.set_eplb_state(
+        0,
+        expert_load_view=load,
+        logical_to_physical_map=perm.view(1, num_experts, 1),
+        logical_replica_count=torch.ones(
+            1, num_experts, dtype=torch.long, device="cuda"
+        ),
+    )
+    experts.eplb_state.should_record_tensor = torch.ones(
+        (), dtype=torch.bool, device="cuda"
+    )
+    experts.eplb_state.num_unpadded_tokens_tensors = [
+        torch.tensor(num_unpadded, dtype=torch.int32, device="cuda")
+    ]
+
+    out = experts.map_to_physical(ids)
+    assert out.dtype == torch.int32
+    torch.testing.assert_close(out.long(), perm[ids.long()])
+    # Load is recorded per physical expert, for the unpadded rows only.
+    expected = torch.bincount(
+        perm[ids[:num_unpadded].long()].flatten(), minlength=num_experts
+    )
+    torch.testing.assert_close(load[0].long(), expected)
+
+    experts.eplb_state.should_record_tensor.fill_(False)
+    experts.map_to_physical(ids)
+    torch.testing.assert_close(load[0].long(), expected)
 
 
 @pytest.mark.skipif(not current_platform.is_rocm(), reason="Requires ROCm")

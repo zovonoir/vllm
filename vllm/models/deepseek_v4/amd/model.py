@@ -549,7 +549,9 @@ class DeepseekV4HeterogeneousSharedRoutedExperts(RoutedExperts):
         return routed + shared_out
 
 
-def _validate_aiter_mega_moe_config(vllm_config: VllmConfig) -> None:
+def _validate_aiter_mega_moe_config(
+    vllm_config: VllmConfig, supports_eplb: bool = False
+) -> None:
     parallel_config = vllm_config.parallel_config
     if not rocm_aiter_ops.is_fused_moe_enabled():
         raise ValueError(
@@ -578,7 +580,15 @@ def _validate_aiter_mega_moe_config(vllm_config: VllmConfig) -> None:
             "(without VLLM_MORI_EP_V2=1)."
         )
     if parallel_config.enable_eplb:
-        raise NotImplementedError("AITER MegaMoE does not support EPLB.")
+        if not supports_eplb:
+            raise NotImplementedError(
+                "AITER MegaMoE supports EPLB only for DeepSeek-V4.1."
+            )
+        if parallel_config.eplb_config.num_redundant_experts != 0:
+            raise NotImplementedError(
+                "AITER MegaMoE EPLB only rebalances the expert placement; set "
+                "--eplb-config.num_redundant_experts=0."
+            )
     if getattr(vllm_config.model_config.hf_config, "expert_dtype", "fp4") != "fp4":
         raise NotImplementedError("AITER MegaMoE only supports fp4 experts.")
 
@@ -586,6 +596,8 @@ def _validate_aiter_mega_moe_config(vllm_config: VllmConfig) -> None:
 class DeepseekV4MoE(nn.Module):
     # None: use the padding vLLM added.
     experts_intermediate_pad: int | None = None
+    # Whether the model registers its AITER MegaMoE layers with EPLB.
+    supports_mega_moe_eplb: bool = False
 
     def __init__(
         self,
@@ -722,7 +734,7 @@ class DeepseekV4MoE(nn.Module):
         self.experts_end_idx = self.experts_start_idx + self.n_local_experts
 
         if self.use_mega_moe:
-            _validate_aiter_mega_moe_config(vllm_config)
+            _validate_aiter_mega_moe_config(vllm_config, self.supports_mega_moe_eplb)
             self.experts = DeepseekV4AiterMegaMoEExperts(
                 vllm_config,
                 num_experts=config.n_routed_experts,
@@ -835,6 +847,10 @@ class DeepseekV4MoE(nn.Module):
         self, hidden_states: torch.Tensor, input_ids: torch.Tensor | None
     ) -> torch.Tensor:
         router_logits, _ = self.gate(hidden_states)
+        # With EPLB, the topk kernel also maps to physical experts.
+        eplb_state = getattr(self.experts, "eplb_state", None)
+        if eplb_state is not None and eplb_state.logical_to_physical_map is None:
+            eplb_state = None
         topk_weights, topk_ids = fused_topk_bias(
             hidden_states=hidden_states,
             gating_output=router_logits,
@@ -847,8 +863,13 @@ class DeepseekV4MoE(nn.Module):
             routed_scaling_factor=self.routed_scaling_factor,
             bias_vl=self.gate.bias_vl,
             image_sentinel_lo=self.image_sentinel_lo,
+            eplb_state=eplb_state,
         )
-        return self.experts(hidden_states, topk_weights, topk_ids)
+        if eplb_state is None:
+            return self.experts(hidden_states, topk_weights, topk_ids)
+        return self.experts(
+            hidden_states, topk_weights, topk_ids, topk_ids_physical=True
+        )
 
 
 # Hidden sizes supported by AITER mhc_pre_big_fuse_rmsnorm.

@@ -2350,7 +2350,15 @@ def topk_hash_softplus_sqrt(
     is_padding: torch.Tensor | None = None,
     bias_vl: torch.Tensor | None = None,
     image_sentinel_lo: int = 0,
+    eplb_logical_to_physical: torch.Tensor | None = None,
+    eplb_replica_count: torch.Tensor | None = None,
+    eplb_expert_load: torch.Tensor | None = None,
+    eplb_record_enabled: torch.Tensor | None = None,
+    eplb_num_unpadded_tokens: torch.Tensor | None = None,
 ) -> None:
+    """With `eplb_logical_to_physical`, `topk_indices` gets EPLB physical
+    expert ids and `eplb_expert_load` the routed rows (per the record flag and
+    the unpadded token count)."""
     torch.ops._moe_C.topk_softplus_sqrt(
         topk_weights,
         topk_indices,
@@ -2364,6 +2372,11 @@ def topk_hash_softplus_sqrt(
         is_padding,
         bias_vl,
         image_sentinel_lo,
+        eplb_logical_to_physical,
+        eplb_replica_count,
+        eplb_expert_load,
+        eplb_record_enabled,
+        eplb_num_unpadded_tokens,
     )
 
 

@@ -21,7 +21,10 @@ STABLE_TORCH_LIBRARY_FRAGMENT(_moe_C, m) {
       "token_expert_indices, Tensor gating_output, bool renormalize, float "
       "routed_scaling_factor, Tensor? "
       "bias, Tensor? input_ids, Tensor? tid2eid, Tensor? is_padding, "
-      "Tensor? bias_vl=None, int image_sentinel_lo=0) -> ()");
+      "Tensor? bias_vl=None, int image_sentinel_lo=0, "
+      "Tensor? eplb_logical_to_physical=None, Tensor? eplb_replica_count=None, "
+      "Tensor!? eplb_expert_load=None, Tensor? eplb_record_enabled=None, "
+      "Tensor? eplb_num_unpadded_tokens=None) -> ()");
 
 #ifdef USE_CUDA
   m.def(

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import os
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import wraps
@@ -22,6 +23,10 @@ if TYPE_CHECKING:
     from vllm.v1.worker.gpu.model_runner import GPUModelRunner
 
 logger = init_logger(__name__)
+
+# EXPERIMENT: record EPLB load only on steps without prefill, so long prefills
+# do not dominate the window that a decode placement is fitted on.
+_DECODE_ONLY_WINDOW = os.environ.get("VLLM_EPLB_DECODE_ONLY_WINDOW", "0") == "1"
 
 
 def eplb_draft_model_name(model_config: ModelConfig) -> str:
@@ -56,9 +61,15 @@ def step_eplb_after(*, is_dummy: bool = False) -> Callable:
                 with self.eplb.suppress():
                     return fn(self, *args, **kwargs)
 
+            record_window = True
+            if _DECODE_ONLY_WINDOW and not is_dummy:
+                state = getattr(self, "execute_model_state", None)
+                record_window = state is None or not state.input_batch.has_prefill
             result = fn(self, *args, **kwargs)
             is_profile = kwargs.get("is_profile", False) if is_dummy else False
-            self.eplb.step(is_dummy=is_dummy, is_profile=is_profile)
+            self.eplb.step(
+                is_dummy=is_dummy, is_profile=is_profile, record_window=record_window
+            )
             return result
 
         return wrapper
@@ -186,7 +197,12 @@ class EPLBController:
         if eplb_models_added and self.state is not None and self.state.is_async:
             self.state.start_async_loop()
 
-    def step(self, is_dummy: bool = False, is_profile: bool = False) -> None:
+    def step(
+        self,
+        is_dummy: bool = False,
+        is_profile: bool = False,
+        record_window: bool = True,
+    ) -> None:
         if (
             not self.parallel_config.enable_eplb
             or self.suppressed
@@ -196,7 +212,9 @@ class EPLBController:
             return
 
         log_stats = self.parallel_config.eplb_config.log_balancedness
-        self.state.step(is_dummy, is_profile, log_stats=log_stats)
+        self.state.step(
+            is_dummy, is_profile, log_stats=log_stats, record_window=record_window
+        )
 
     def prepare_forward(
         self,

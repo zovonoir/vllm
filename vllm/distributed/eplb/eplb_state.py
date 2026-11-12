@@ -565,6 +565,7 @@ class EplbState:
         is_dummy: bool = False,
         is_profile: bool = False,
         log_stats: bool = False,
+        record_window: bool = True,
     ) -> None:
         """Step the EPLB state.
 
@@ -577,6 +578,8 @@ class EplbState:
                 `profile_run` to reserve enough memory
                 for the communication buffer.
             log_stats (bool): If `True`, log the expert load metrics.
+            record_window (bool): If `False`, this step's expert load is
+                dropped instead of entering the load window.
 
         # Stats
             The metrics are all summed up across layers.
@@ -658,7 +661,11 @@ class EplbState:
                 )
 
         # Update the expert load sliding window
-        if not is_dummy:
+        if not is_dummy and not record_window:
+            # This step's load is left out of the window (e.g. it prefilled).
+            for eplb_model_state in self.model_states.values():
+                eplb_model_state.expert_load_pass.zero_()
+        elif not is_dummy:
             should_record = self._should_record_current_step(log_stats=log_stats)
             for eplb_model_state in self.model_states.values():
                 if should_record:
